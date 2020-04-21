@@ -1,0 +1,25 @@
+{% extends 'base.html' %}
+
+{% block head %}
+<title>Glide</title>
+{% endblock %}
+
+{% block body %}
+<div id='overlay'>
+    <div class='inputDiv'>
+        <input id='name-input' name="savenick" type='username' maxlength="10">
+        <input id='nameButton' value='Start' type='button'>
+    </div>
+</div>
+
+
+<!--JQuery-->
+<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/jquery.min.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/socket.io.min.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/pixi.min.js') }}"></script>
+
+<script type="text/javascript" src="{{ url_for('static', filename='js/car.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/food.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/scoreboard.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/script.js') }}"></script>
+{% endblock %}
