@@ -206,13 +206,14 @@ class Car{
                 1
             );
             this.carSprite.scale.set(
-                lerp(this.carSprite.scale.x, MAX_BUMPER_SCALE, 0.01),
-                1
+                1,
+                lerp(this.carSprite.scale.y, MAX_BUMPER_SCALE, 0.01)
             );
+            /* 
             this.lightsSprite.scale.set(
                 lerp(this.lightsSprite.scale.x, MAX_BUMPER_SCALE, 0.01),
                 0.5
-            );
+            ); */
         }
     }
     getVertices(spriteObject){
