@@ -184,6 +184,7 @@ app.ticker.add((delta) => {
         bestPlayerPoint.x = bestPlayerPos[0] / MAP_SIDE * 56;
         bestPlayerPoint.y = bestPlayerPos[1] / MAP_SIDE * 56;
 
+        container.scale.set(1 - car.score/2000,1 - car.score/2000);
         //Score Board
         scoreBoard.updateBoard(scoreBoardInfo, car, socket.id);
         

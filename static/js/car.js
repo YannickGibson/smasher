@@ -1,6 +1,7 @@
 const MAX_SPEED = 0.8;
 const TURN_SPEED = 0.1;
 const SCORE_TEXT_Y_OFFSET = 30;
+const MAX_BODY_SCALE = 4;
 
 function scalarProduct(vect1, vect2){
     return (vect1[0] * vect2[0]) + (vect1[1] * vect2[1]);
@@ -202,12 +203,12 @@ class Car{
             // lerp isnt for animation purposes
             // It's for fast growth on start and slowly growing when score is big -- later comment: the comment is actually so usefull
             this.bumperSprite.scale.set(
-                lerp(this.bumperSprite.scale.x, MAX_BUMPER_SCALE * 1.5, 0.01),
+                lerp(this.bumperSprite.scale.x, MAX_BUMPER_SCALE * 1.5, 0.001),
                 1
             );
             this.carSprite.scale.set(
                 1,
-                lerp(this.carSprite.scale.y, MAX_BUMPER_SCALE, 0.01)
+                lerp(this.carSprite.scale.y, MAX_BODY_SCALE, 0.0005)
             );
             /* 
             this.lightsSprite.scale.set(
