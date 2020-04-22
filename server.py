@@ -108,6 +108,19 @@ def kill(id):
 
             emit('killed', {"killer": nameOfKiller}, room=id)#room is socket id, send to dead car
 
+@socketio.on("i died", namespace="/")
+def kill(id):
+    if id in cars:
+        if request.sid in cars and cars[id]['active'] == True:#check if killer isnt dead :D
+
+            # kill the car
+            cars[request.sid]['active'] = False
+
+            nameOfKiller = cars[id]['name']
+            cars[id]['score'] += 50
+
+            emit('killed', {"killer": nameOfKiller}, room=request.sid)#room is socket id, send to dead car
+
 
 @socketio.on('connect', namespace="/")
 def connected():

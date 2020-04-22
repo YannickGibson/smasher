@@ -198,12 +198,20 @@ app.ticker.add((delta) => {
         socket.emit("myCar", myData);
 
         for ( id in otherCars) {
-            if(car.dead == false && car.doesKill(otherCars[id]) )
+            if(car.dead == false )
             {
-                car.dead = true;
-                console.log("kill");
-                socket.emit("kill", id);
-                shakeCam();
+                
+                if(otherCars[id].doesKill(car))
+                {
+                    socket.emit("i died", id);
+                }
+                else if (car.doesKill(otherCars[id]))
+                {
+                    car.dead = true;
+                    console.log("kill");
+                    socket.emit("kill", id);
+                    shakeCam();
+                }
             }
             //otherCars[i].move(delta);
             //first need to set acc, rotate
