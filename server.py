@@ -36,8 +36,8 @@ def random_food():
 
 food = {random_food_id(): random_food() for _ in range(100)}
 
-VIEW_DISTANCE_X =  950
-VIEW_DISTANCE_Y =  530
+VIEW_DISTANCE_X =  950 * 4
+VIEW_DISTANCE_Y =  530 * 4
 
 def heart_beat():
     while True:
