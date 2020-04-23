@@ -104,20 +104,20 @@ def kill(id):
             cars[id]['active'] = False
 
             nameOfKiller = cars[request.sid]['name']
-            cars[request.sid]['score'] += 50
+            cars[request.sid]['score'] += 50 + cars[id]/10
 
             emit('killed', {"killer": nameOfKiller}, room=id)#room is socket id, send to dead car
 
 @socketio.on("i died", namespace="/")
 def kill(id):
     if id in cars:
-        if request.sid in cars and cars[id]['active'] == True:#check if killer isnt dead :D
+        if request.sid in cars and cars[id]['active'] == True and id in cars and cars[request.sid]['active'] == True:#check if killer isnt dead :D
 
             # kill the car
             cars[request.sid]['active'] = False
 
             nameOfKiller = cars[id]['name']
-            cars[id]['score'] += 50
+            cars[id]['score'] += 50 + cars[request.sid]/10
 
             emit('killed', {"killer": nameOfKiller}, room=request.sid)#room is socket id, send to dead car
 
