@@ -104,7 +104,7 @@ def kill(id):
             cars[id]['active'] = False
 
             nameOfKiller = cars[request.sid]['name']
-            cars[request.sid]['score'] += 50 + cars[id]/10
+            cars[request.sid]['score'] += 50 + cars[id]['score']/10
 
             emit('killed', {"killer": nameOfKiller}, room=id)#room is socket id, send to dead car
 
@@ -117,7 +117,7 @@ def kill(id):
             cars[request.sid]['active'] = False
 
             nameOfKiller = cars[id]['name']
-            cars[id]['score'] += 50 + cars[request.sid]/10
+            cars[id]['score'] += 50 + cars[request.sid]['score']/10
 
             emit('killed', {"killer": nameOfKiller}, room=request.sid)#room is socket id, send to dead car
 
