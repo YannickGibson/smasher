@@ -98,7 +98,7 @@ def update_my_car(car):
 @socketio.on("kill", namespace="/")
 def kill(id):
     if id in cars:
-        if request.sid in cars and cars[id]['active'] == True:#check if killer isnt dead :D
+        if request.sid in cars and cars[id]['active'] == True and id in cars and cars[request.sid]['active'] == True:#check if killer isnt dead :D
 
             # kill the car
             cars[id]['active'] = False
@@ -146,7 +146,7 @@ def on_join(data):
         car['name'] = data['name']
 
     car['color'] = random_color()
-    car['score'] = 700
+    car['score'] = 0
 
     emit("join", car)
 
