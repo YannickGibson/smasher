@@ -146,7 +146,7 @@ def on_join(data):
         car['name'] = data['name']
 
     car['color'] = random_color()
-    car['score'] = 0
+    car['score'] = 700
 
     emit("join", car)
 

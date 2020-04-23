@@ -208,7 +208,7 @@ class Car{
             );
             this.carSprite.scale.set(
                 1,
-                lerp(this.carSprite.scale.y, MAX_BODY_SCALE, 0.0005)
+                lerp(this.carSprite.scale.y, MAX_BODY_SCALE, 0.001)
             );
             /* 
             this.lightsSprite.scale.set(
