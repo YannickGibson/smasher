@@ -114,7 +114,8 @@ def update_my_car(car):
         cars[request.sid]['x'] = car['x']
         cars[request.sid]['y'] = car['y']
         cars[request.sid]['rot'] = car['rot']
-        #print("car rot: {}".format(car['rot']))
+        cars[request.sid]['boost'] = car['boost']
+        cars[request.sid]['acc'] = car['acc']
 
 
 @socketio.on("kill", namespace="/")

@@ -30,6 +30,12 @@ const victimStyle = new PIXI.TextStyle({
     strokeThickness: 1,
 });
 
+const fpsStyle = new PIXI.TextStyle({
+    fontFamily: 'Arial',
+    fontSize: 10,
+    fill: ['#000000']
+});
+
 function moveCamera(){
     container.pivot.x = lerp(container.pivot.x, car.x, 0.2);
     container.pivot.y = lerp(container.pivot.y, car.y, 0.2);
@@ -55,7 +61,7 @@ function stopCameraShake(){
     shakeCamIntensity = maxShakeCamIntensity;
 }
 
-
+PIXI.utils.skipHello();
 
 
 let isCameraShaking = false;
@@ -63,7 +69,7 @@ let shakeCamTime = 0;
 const maxShakeCamTime = 20;
 const maxShakeCamIntensity = 300;
 let shakeCamIntensity = maxShakeCamIntensity;
-const MAX_BOOST_WIDTH = 100;
+const MAX_BOOSTBAR_WIDTH = 100;
 
 
 var socket = io({transports: ['websocket']});
@@ -156,8 +162,7 @@ killCountContainer.addChild(killCountText);
 const victimText = new PIXI.Text("", victimStyle);
 victimText.anchor.set(0.5, 0.5);
 victimText.x = window.innerWidth / 2;
-victimText.y = window.innerHeight / 2;
-victimText.y -= 200;
+victimText.y = window.innerHeight / 2 - 200;
 guiContainer.addChild(victimText);
 
 const deathText = new PIXI.Text("Hello", deathTextStyle);
@@ -174,20 +179,26 @@ boostContainer.position.y = window.innerHeight - 40;
 guiContainer.addChild(boostContainer);
 
 const boostBack = new PIXI.Sprite.from('static/images/gui/minimap.png');
-boostBack.x = -MAX_BOOST_WIDTH/2;
-boostBack.width = MAX_BOOST_WIDTH;
+boostBack.x = -MAX_BOOSTBAR_WIDTH/2;
+boostBack.width = MAX_BOOSTBAR_WIDTH;
 boostBack.height = 20;
 boostBack.tint = "0x000000";
 boostBack.alpha = 0.2;
 boostContainer.addChild(boostBack);
 
 const boostCharge = new PIXI.Sprite.from('static/images/gui/minimap.png');
-boostCharge.x = -MAX_BOOST_WIDTH/2;
-boostCharge.width = MAX_BOOST_WIDTH;
+boostCharge.x = -MAX_BOOSTBAR_WIDTH/2;
+boostCharge.width = MAX_BOOSTBAR_WIDTH;
 boostCharge.height = 20;
 boostCharge.tint = "0x000000";
 boostCharge.alpha = 0.5;
 boostContainer.addChild(boostCharge);
+
+
+const fpsText = new PIXI.Text("fps: 60", fpsStyle);
+fpsText.x = 10;
+fpsText.y = window.innerHeight - 20;
+guiContainer.addChild(fpsText);
 //
 // End GUI
 //
@@ -204,6 +215,7 @@ let vanishingFood = []
 let scoreBoard = new ScoreBoard(scoreBoardContainer);
 let scoreBoardInfo = {};
 let bestPlayerPos = [null, null];
+let particles = [];
 
 let inGame = false;
 let killCount = 0;
@@ -218,7 +230,8 @@ let isGoingBackward = false;
 let isPressingEnter = false;
 
 socket.on("join", initData =>{
-    car = new Car(container, 
+    car = new Car(container,
+        particles,
         initData.x,
         initData.y,
         initData.rot,
@@ -253,7 +266,7 @@ app.ticker.add((delta) => {
             car.acc = 1;
         }
         else if (isGoingBackward){
-            car.acc = -1;
+            car.acc = -.7;
         }
         else{
             car.acc = 0;
@@ -273,23 +286,23 @@ app.ticker.add((delta) => {
             car.turn = 0;
         }
         
+        fpsText.text = "fps: " + parseInt(delta*60);
 
         const scaleXY = lerp(container.scale.x, 1, 0.01);
         container.scale.set(scaleXY, scaleXY);
 
 
-        if (isPressingEnter && boostIsEnabled && (isGoingForward || isGoingBackward) )
+        if (isPressingEnter && boostIsEnabled)
         {
-            car.accSpeed = BOOST_SPEED;
-            car.carSprite.tint = "0xFF0000";
+            car.boostOn();
             boostChargePercentage -= 0.02 * delta;
             if (boostChargePercentage <= 0 )
             {
                 boostChargePercentage = 0;
-                car.accSpeed = NORMAL_SPEED;
+                car.boostOff();
                 boostIsEnabled = false;
             }
-            boostCharge.width = boostChargePercentage * MAX_BOOST_WIDTH;
+            boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
         }
         else if (boostChargePercentage<1)
         {
@@ -297,11 +310,13 @@ app.ticker.add((delta) => {
            if (boostChargePercentage >= 1 ){
                boostChargePercentage = 1;
            }
-           boostCharge.width = boostChargePercentage * MAX_BOOST_WIDTH;
+           boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
         }
         
         car.move(delta);
+        car.updateTurboEmit(delta);
 
+        
         // GUI
         playerPoint.x = car.x / MAP_SIDE * 56;
         playerPoint.y = car.y / MAP_SIDE * 56;
@@ -316,16 +331,18 @@ app.ticker.add((delta) => {
 
 
         myData = {
-            x: car.x,
-            y: car.y,
-            rot: car.rotation
+            x: parseInt(car.x),
+            y: parseInt(car.y),
+            rot: car.rotation,
+            boost: isPressingEnter,
+            acc: car.acc
         }
         socket.emit("myCar", myData);
 
         for ( id in otherCars) {
+            otherCars[id].move(delta);
             if(car.dead == false)
             {
-                
                 if(otherCars[id].doesKill(car))
                 {
                     socket.emit("i died", id);
@@ -337,7 +354,6 @@ app.ticker.add((delta) => {
                     socket.emit("kill", id);
                 }
             }
-            //otherCars[i].move(delta);
             //first need to set acc, rotate
         }
         let foodIdsToDel = []
@@ -354,7 +370,7 @@ app.ticker.add((delta) => {
 
                 vanishingFood.push(food[foodId]);
 
-                console.log("Ham");
+                //console.log("Ham");
                 socket.emit("eat", foodId);
             }
         }
@@ -365,7 +381,7 @@ app.ticker.add((delta) => {
         for (i in vanishingFood)
         {
             if (vanishingFood[i].sprite.scale.x < 0.1){
-                console.log("Food Vanished!");
+                //console.log("Food Vanished!");
                 vanishingFood[i].wipe();
                 vanishingFood.splice(i,1);
             }
@@ -380,6 +396,21 @@ app.ticker.add((delta) => {
         const scaleXY = lerp(container.scale.x, 0.5,0.1);
         container.scale.set(scaleXY, scaleXY);
     }
+    for (i in otherCars){
+        otherCars[i].updateTurboEmit(delta);
+    }
+    for (let i = particles.length - 1; i >= 0; i--) 
+    {
+        particles[i].update();
+        
+        if (particles[i].finished())
+        {
+            particles[i].wipe(container);
+            particles.splice(i, 1);
+        }
+    }
+
+
     if (car != null){//camera follows car only if car exists :D
 
         if (isCameraShaking){
@@ -401,6 +432,7 @@ socket.on('heartBeat', (data)=> {
     {
         const receiveCarData = othersData[id]
         if (id != socket.id){
+            let locCar; 
             if (otherCars.hasOwnProperty(id)){
                 locCar = otherCars[id];
                 // Set angle first, because angle depends on positions of car components!!! (been solving this for ~1 hour)
@@ -409,11 +441,11 @@ socket.on('heartBeat', (data)=> {
                     lerp(locCar.x, receiveCarData['x'], 0.2),
                     lerp(locCar.y, receiveCarData['y'], 0.2)
                 );
-                locCar.updateScore(receiveCarData['score']);
             }
             else{//new car
-                const newCar = new Car(
+                locCar = new Car(
                     container,
+                    particles,
                     receiveCarData['x'],
                     receiveCarData['y'],
                     receiveCarData['rot'],
@@ -421,9 +453,22 @@ socket.on('heartBeat', (data)=> {
                     receiveCarData['name'],
                     receiveCarData['score']
                 );
-                otherCars[id] = newCar;// Add car to dictionary
+                otherCars[id] = locCar;// Add car to dictionary
                 //console.log("New Car has been added");
             }
+
+            locCar.updateScore(receiveCarData['score']);
+            console.log(receiveCarData['acc']);
+            locCar.acc = receiveCarData['acc'];
+
+            if (receiveCarData['boost'])
+            {
+                locCar.boostOn();
+            } 
+            else
+            {
+                locCar.boostOff();
+            } 
         }
     }
     for (localId in otherCars){
@@ -530,7 +575,6 @@ socket.on("dead", (data)=>{
 
             stopCameraShake();//force stop camera shaking
 
-            console.log("death i cleared: " + i);
             clearInterval(t);
             return;
         }
@@ -542,10 +586,11 @@ socket.on("dead", (data)=>{
 });
 
 
-document.onkeydown = e => {
+document.onkeydown = e => 
+{/* 
     if (!inGame){
         return
-    }
+    } */
     switch (e.keyCode) 
     { 
         case 38: // UP
@@ -579,10 +624,11 @@ document.onkeydown = e => {
     }
 }
 
-document.onkeyup = e => {
+document.onkeyup = e => 
+{/* 
     if (!inGame){
         return
-    }
+    } */
     switch (e.keyCode) 
     {
         case 38: // UP
@@ -607,7 +653,7 @@ document.onkeyup = e => {
             
         case 32: // Space
             isPressingEnter = false;
-            car.accSpeed = NORMAL_SPEED;
+            car.boostOff();
             boostIsEnabled = true;
             break;
 

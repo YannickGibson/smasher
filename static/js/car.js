@@ -51,7 +51,7 @@ const MAP_SIDE = 512*5//image-size*(scale/2) ##idk why divided by 2
 const MAX_BUMPER_SCALE = 6;
 
 class Car{
-    constructor(container, x, y, angle, color, name, score){
+    constructor(container, particles, x, y, angle, color, name, score){
         this.name = name;
         this.container = container;
         this.speed = 0;
@@ -108,6 +108,12 @@ class Car{
 
         this.xVel = 0;
         this.yVel = 0;
+
+        
+
+        this.turbo = new Turbo(container, color);
+        this.boostIsOn = false;
+        this.particles = particles;
     }
     get width(){
         return this.carSprite.width;
@@ -160,10 +166,11 @@ class Car{
     }
     move(delta)
     {
-        if (this.acc == -1)
-        {
-            this.acc = -0.7
+        if (this.boostIsOn){
+            this.acc = 1;
         }
+
+
         this.rotateBy(this.turn * TURN_SPEED * delta)
         
         this.xVel += Math.cos(this.rotation + radians(90)) * this.accSpeed * -this.acc;
@@ -174,12 +181,21 @@ class Car{
             constrain(this.x + this.xVel, -MAP_SIDE, MAP_SIDE),
             constrain(this.y + this.yVel, -MAP_SIDE, MAP_SIDE)
         )
-        
 
+        
         this.driftAngle *= 0.85;
         this.xVel *= 0.93;
         this.yVel *= 0.93;
         this.speed *= 0.93;
+    }
+    updateTurboEmit(delta){
+        // Turbo
+        if(this.boostIsOn){
+            const newParticles = this.turbo.emit(delta, this.x, this.y, this.rotation, this.carSprite.width, this.carSprite.height);
+            for (let i in newParticles) {
+                this.particles.push(newParticles[i]);
+            }
+        }
     }
     rotateBy(angl){
         if (angl == 0) return;
@@ -219,6 +235,14 @@ class Car{
                 0.5
             ); */
         }
+    }
+    boostOn(){
+        this.boostIsOn = true;
+        this.accSpeed = BOOST_SPEED;
+    }
+    boostOff(){
+        this.boostIsOn = false;
+        this.accSpeed = NORMAL_SPEED;
     }
     getVertices(spriteObject){
         const vectTL = [- spriteObject.width/2, - spriteObject.height/2]; // vect from center to Top Left not rotated
@@ -331,27 +355,98 @@ class Car{
 }
 
 
-/* 
 class Turbo{
-    constructor(container)
+    static PARTICLES_PER_TICK = 15;
+    static SPEED = 0.2;
+    static RAND_SIDE = 10;
+    static RAND_FRONT = 20;
+    constructor(container, color)
     {
-        this.particles = [];
+        this.color = color;
+        this.container = container;
     }
-    start(){
+    emit(delta, x,y, rotation, width, height)
+    {
+        let _particles = [];
+        let nOfParticles = parseInt(Turbo.PARTICLES_PER_TICK * delta);
+        for (let i = 0; i < nOfParticles; i++) 
+        {
+            const element = 5          
+            const x1 = x + Math.cos(rotation) * ( width/2 - 10 ) + Math.cos(rotation + radians(90)) * height/2;
+            const y1 = y + Math.sin(rotation) * ( width/2 - 10 ) + Math.sin(rotation + radians(90)) * height/2;
+            _particles.push(new Particle(this.container, x1, y1, rotation, this.color));
 
-    }
-    emit(x,y)
-    {
-        for (let i = 0; i < 50; i++) {
-            this.move();
+            const x2 = x - Math.cos(rotation) * ( width/2 - 10 ) + Math.cos(rotation + radians(90)) * height/2;
+            const y2 = y - Math.sin(rotation) * ( width/2 - 10 ) + Math.sin(rotation + radians(90)) * height/2;
+            _particles.push(new Particle(this.container, x2, y2, rotation, this.color));
         }
+        return _particles;
+
     }
 }
 class Particle{
-    constructor(x, y)
+    constructor(container, x, y, rotation, color)
     {
-        this.x = x;
-        this.y = y;
-        this.sprite = new PIXI.Sprite.from('static/images/turbo/basic.png');
+        this.sprite = new PIXI.Sprite.from('static/images/turbos/basic.png');
+        this.sprite.anchor.set(0.5);
+        this.sprite.scale.set(0.5);
+
+        const cosRotated = Math.cos(rotation + radians(90));
+        const sinRotated = Math.sin(rotation + radians(90));
+
+        let rSideVelX = (Math.random() * Turbo.RAND_SIDE * 2) - Turbo.RAND_SIDE;
+        let rSideVelY = rSideVelX;
+        rSideVelX *= Math.cos(rotation);
+        rSideVelY *= Math.sin(rotation);
+
+        let rFrontVelX = (Math.random() * Turbo.RAND_FRONT * 2) - Turbo.RAND_FRONT/2;// division cause i want it to go back
+        let rFrontVelY = rFrontVelX;
+        rFrontVelX *= cosRotated;
+        rFrontVelY *= sinRotated;
+
+        let rVelX = rSideVelX + rFrontVelX;
+        let rVelY = rSideVelY + rFrontVelY;
+        
+
+        this.velX = (Turbo.SPEED) * cosRotated  + rVelX;
+        this.velY = (Turbo.SPEED) * sinRotated  + rVelY;
+
+        this.sprite.x = x + rVelX;
+        this.sprite.y = y + rVelY;
+
+        this.startColor = [1, 1, 1];
+        this.endColor = PIXI.utils.hex2rgb(color);
+        this.blendVal = 0;
+
+        this.sprite.tint = PIXI.utils.rgb2hex(this.startColor);
+
+        container.addChild(this.sprite);
+
+
     }
-} */
+    update(){
+        this.sprite.x += this.velX;
+        this.sprite.y += this.velY;
+        this.sprite.alpha -= 0.05;
+        const newScale = this.sprite.scale.x + 0.1;
+        this.sprite.scale.set(newScale);
+
+        this.sprite.tint = blendColors(this.startColor, this.endColor, this.blendVal);
+        this.blendVal = lerp(this.blendVal, 1, 0.2);
+    }
+    finished(){
+        return this.sprite.alpha < 0;
+    }
+    wipe(container)
+    {
+        container.removeChild(this.sprite);
+    }
+} 
+function blendColors(c1, c2, val)
+{
+    let color =  [0, 0, 0] 
+    color[0] = c1[0] + (c2[0] - c1[0]) * val;
+    color[1] = c1[1] + (c2[1] - c1[1]) * val;
+    color[2] = c1[2] + (c2[2] - c1[2]) * val;
+    return PIXI.utils.rgb2hex(color);
+}
