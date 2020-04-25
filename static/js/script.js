@@ -153,7 +153,7 @@ killCountImg.anchor.set(0, 0.5);
 killCountImg.scale.set(0.5,0.5);
 killCountContainer.addChild(killCountImg);
 
-const killCountText = new PIXI.Text("0", killCountStyle);
+const killCountText = new PIXI.Text("", killCountStyle);
 killCountText.anchor.set(0, 0.5);
 killCountText.x = 40;
 killCountText.y = 0;
@@ -245,6 +245,8 @@ socket.on("join", initData =>{
     console.log("joining...");
     scoreBoardContainer.alpha = 1;
     minimapContainer.alpha = 1;
+    killCountText.text = "0";
+    killCount = 0;
 
     isTurningRight = false;
     isTurningLeft = false;
