@@ -1,4 +1,5 @@
-const MAX_SPEED = 0.8;
+const NORMAL_SPEED = 0.8;
+const BOOST_SPEED = 1.8;
 const TURN_SPEED = 0.1;
 const SCORE_TEXT_Y_OFFSET = 30;
 const MAX_BODY_SCALE = 4;
@@ -47,7 +48,8 @@ function constrain(val, min, max){
     }
 }
 const MAP_SIDE = 512*5//image-size*(scale/2) ##idk why divided by 2 
-const MAX_BUMPER_SCALE = 6
+const MAX_BUMPER_SCALE = 6;
+
 class Car{
     constructor(container, x, y, angle, color, name, score){
         this.name = name;
@@ -84,7 +86,8 @@ class Car{
         this.lightsSprite.y = y - cos * this.height/2 + cos*20;
         
         this.scaleBumper(score);
-        
+
+
         
         this.nameText = new PIXI.Text(name, playerNameStyle);
         this.nameText.x = x;
@@ -98,7 +101,7 @@ class Car{
         this.scoreText.anchor.set(0.5);
         container.addChild(this.scoreText);
 
-
+        this.accSpeed = NORMAL_SPEED;
 
         // Sets pos. of all components
         this.setPos(x, y)
@@ -163,8 +166,8 @@ class Car{
         }
         this.rotateBy(this.turn * TURN_SPEED * delta)
         
-        this.xVel += Math.cos(this.rotation + radians(90)) * MAX_SPEED * -this.acc;
-        this.yVel += Math.sin(this.rotation + radians(90)) * MAX_SPEED * -this.acc; //acc => dopredu|dozadu
+        this.xVel += Math.cos(this.rotation + radians(90)) * this.accSpeed * -this.acc;
+        this.yVel += Math.sin(this.rotation + radians(90)) * this.accSpeed * -this.acc; //acc => dopredu|dozadu
         this.rotation += this.driftAngle * this.acc * 1;
 
         this.setPos(
@@ -326,3 +329,29 @@ class Car{
         this.container.removeChild(this.scoreText);
     }
 }
+
+
+/* 
+class Turbo{
+    constructor(container)
+    {
+        this.particles = [];
+    }
+    start(){
+
+    }
+    emit(x,y)
+    {
+        for (let i = 0; i < 50; i++) {
+            this.move();
+        }
+    }
+}
+class Particle{
+    constructor(x, y)
+    {
+        this.x = x;
+        this.y = y;
+        this.sprite = new PIXI.Sprite.from('static/images/turbo/basic.png');
+    }
+} */

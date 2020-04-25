@@ -1,13 +1,33 @@
 function lerp(min, max, val){
     return min + (max - min) * val;
 }
-const deadTextStyle = new PIXI.TextStyle({
+function inverseLerp(a, b, x){
+    return (x - a) / (b - a)
+}
+
+const deathTextStyle = new PIXI.TextStyle({
     fontFamily: 'Arial',
     fontSize: 35,
     fill: ['#fe4422'],
     stroke: '#4a1850',
     fontWeight: 'bold',
     strokeThickness: 2,
+});
+
+const killCountStyle = new PIXI.TextStyle({
+    fontFamily: 'Arial',
+    fontSize: 25,
+    fill: ['#000'],
+    stroke: '#4a1850',
+    strokeThickness: 1,
+});
+
+const victimStyle = new PIXI.TextStyle({
+    fontFamily: 'Arial',
+    fontSize: 30,
+    fill: ['#60ff60'],
+    stroke: '#00c200',
+    strokeThickness: 1,
 });
 
 function moveCamera(){
@@ -34,11 +54,17 @@ function stopCameraShake(){
     shakeCamTime = 0 ;
     shakeCamIntensity = maxShakeCamIntensity;
 }
+
+
+
+
 let isCameraShaking = false;
 let shakeCamTime = 0;
 const maxShakeCamTime = 20;
 const maxShakeCamIntensity = 300;
 let shakeCamIntensity = maxShakeCamIntensity;
+const MAX_BOOST_WIDTH = 100;
+
 
 var socket = io({transports: ['websocket']});
 var app = new PIXI.Application({
@@ -48,12 +74,17 @@ var app = new PIXI.Application({
     backgroundColor: 0x1099bb, 
     resolution: window.devicePixelRatio || 1,
 });
+
+
 document.body.appendChild(app.view);
+
+
 const container = new PIXI.Container();
 app.stage.addChild(container);
 container.position.x = app.screen.width/2;
 container.position.y = app.screen.height/2;
 container.scale.set(0.5, 0.5);
+
 
 const back = PIXI.Sprite.from('static/images/background/basic.png');
 back.x = 0;
@@ -63,16 +94,23 @@ back.scale.y = 10;
 back.anchor.set(0.5);
 container.addChild(back);
 
-const deathText = new PIXI.Text("", deadTextStyle);
-deathText.alpha = 0;
-deathText.anchor.set(0.5);
-container.addChild(deathText);
+
+
+
+
+//
+// GUI
+//
+
+const guiContainer = new PIXI.Container();
+app.stage.addChild(guiContainer);
+
 
 const minimapContainer = new PIXI.Container();
 minimapContainer.position.x = window.innerWidth - 80;
 minimapContainer.position.y = window.innerHeight - 80;
 minimapContainer.alpha = 0;
-app.stage.addChild(minimapContainer);
+guiContainer.addChild(minimapContainer);
 
 const minimap = PIXI.Sprite.from('static/images/gui/minimap.png');
 minimap.x = 0
@@ -91,11 +129,70 @@ bestPlayerPoint.tint = "0x000000";
 minimapContainer.addChild(bestPlayerPoint);
 
 
-scoreBoardContainer =  new PIXI.Container();
+const scoreBoardContainer =  new PIXI.Container();
 scoreBoardContainer.position.x = window.innerWidth - 270;
 scoreBoardContainer.position.y = 20;
 scoreBoardContainer.alpha = 0; // Make it invisible on load
-app.stage.addChild(scoreBoardContainer);
+guiContainer.addChild(scoreBoardContainer);
+
+
+const killCountContainer =  new PIXI.Container();
+killCountContainer.position.x = 10;
+killCountContainer.position.y = 30;
+killCountContainer.alpha = 1; // Make it invisible on load
+guiContainer.addChild(killCountContainer);
+
+const killCountImg = new PIXI.Sprite.from('static/images/gui/killcount.png');
+killCountImg.anchor.set(0, 0.5);
+killCountImg.scale.set(0.5,0.5);
+killCountContainer.addChild(killCountImg);
+
+const killCountText = new PIXI.Text("0", killCountStyle);
+killCountText.anchor.set(0, 0.5);
+killCountText.x = 40;
+killCountText.y = 0;
+killCountContainer.addChild(killCountText);
+
+const victimText = new PIXI.Text("", victimStyle);
+victimText.anchor.set(0.5, 0.5);
+victimText.x = window.innerWidth / 2;
+victimText.y = window.innerHeight / 2;
+victimText.y -= 200;
+guiContainer.addChild(victimText);
+
+const deathText = new PIXI.Text("Hello", deathTextStyle);
+deathText.anchor.set(0.5);
+deathText.x = window.innerWidth / 2;
+deathText.y = window.innerHeight / 2 + 150;
+deathText.alpha = 0;
+guiContainer.addChild(deathText);
+
+
+boostContainer =  new PIXI.Container();
+boostContainer.position.x = window.innerWidth/2;
+boostContainer.position.y = window.innerHeight - 40;
+guiContainer.addChild(boostContainer);
+
+const boostBack = new PIXI.Sprite.from('static/images/gui/minimap.png');
+boostBack.x = -MAX_BOOST_WIDTH/2;
+boostBack.width = MAX_BOOST_WIDTH;
+boostBack.height = 20;
+boostBack.tint = "0x000000";
+boostBack.alpha = 0.2;
+boostContainer.addChild(boostBack);
+
+const boostCharge = new PIXI.Sprite.from('static/images/gui/minimap.png');
+boostCharge.x = -MAX_BOOST_WIDTH/2;
+boostCharge.width = MAX_BOOST_WIDTH;
+boostCharge.height = 20;
+boostCharge.tint = "0x000000";
+boostCharge.alpha = 0.5;
+boostContainer.addChild(boostCharge);
+//
+// End GUI
+//
+
+
 
 
 let overlay = document.getElementById("overlay");
@@ -109,11 +206,16 @@ let scoreBoardInfo = {};
 let bestPlayerPos = [null, null];
 
 let inGame = false;
+let killCount = 0;
+let boostChargePercentage = 1;
+let boostIsEnabled = true;
 
+// Inputs
 let isTurningRight = false;
 let isTurningLeft = false;
 let isGoingForward = false;
 let isGoingBackward = false;
+let isPressingEnter = false;
 
 socket.on("join", initData =>{
     car = new Car(container, 
@@ -175,6 +277,29 @@ app.ticker.add((delta) => {
         const scaleXY = lerp(container.scale.x, 1, 0.01);
         container.scale.set(scaleXY, scaleXY);
 
+
+        if (isPressingEnter && boostIsEnabled && (isGoingForward || isGoingBackward) )
+        {
+            car.accSpeed = BOOST_SPEED;
+            car.carSprite.tint = "0xFF0000";
+            boostChargePercentage -= 0.02 * delta;
+            if (boostChargePercentage <= 0 )
+            {
+                boostChargePercentage = 0;
+                car.accSpeed = NORMAL_SPEED;
+                boostIsEnabled = false;
+            }
+            boostCharge.width = boostChargePercentage * MAX_BOOST_WIDTH;
+        }
+        else if (boostChargePercentage<1)
+        {
+           boostChargePercentage += 0.008 * delta;
+           if (boostChargePercentage >= 1 ){
+               boostChargePercentage = 1;
+           }
+           boostCharge.width = boostChargePercentage * MAX_BOOST_WIDTH;
+        }
+        
         car.move(delta);
 
         // GUI
@@ -198,7 +323,7 @@ app.ticker.add((delta) => {
         socket.emit("myCar", myData);
 
         for ( id in otherCars) {
-            if(car.dead == false )
+            if(car.dead == false)
             {
                 
                 if(otherCars[id].doesKill(car))
@@ -208,9 +333,8 @@ app.ticker.add((delta) => {
                 else if (car.doesKill(otherCars[id]))
                 {
                     car.dead = true;
-                    console.log("kill");
+                    console.log("I killed");
                     socket.emit("kill", id);
-                    shakeCam();
                 }
             }
             //otherCars[i].move(delta);
@@ -354,35 +478,60 @@ socket.on('heartBeat', (data)=> {
     
 });
 
+function iKilled(data)
+{
+     console.log("kill auth");
+     shakeCam();
+     displayVictimText(data['dead']);
+}
+function displayVictimText(name){
+    victimText.alpha = 1;
+    victimText.text = "You have smashed " + name;
+    fadeStrength = 0.001;
+    let t = setInterval(()=>
+    {
+        console.log("Goin");
+        victimText.alpha -= fadeStrength;
+        fadeStrength += 0.001;
+        if (victimText.alpha <= 0.1)
+        {
+            victimText.alpha = 0;
+            clearInterval(t);
+        }
 
-socket.on("killed", (data)=>{
+    }, 30)
+}
+
+socket.on("u killed", iKilled);
+
+socket.on("dead", (data)=>{
 
     inGame = false;
     console.log("you died");
     shakeCam();
 
     deathText.text =  "You were killed by " + data.killer;
-    deathText.x = car.x;
-    deathText.y = car.y + car.height/2 ;
     
+    // Delete car
     car.wipe();
     delete car;
+
     let i = 0;
     const t = setInterval(()=>
     {
         if (i>33)
         {
-            console.log("hi1");
-            console.log("cleared: " + i);
-            clearInterval(t);
-            stopCameraShake();//force stop camera shaking
 
             deathText.alpha = 0;
             scoreBoardContainer.alpha = 0;
             minimapContainer.alpha = 0;
 
             overlay.style.display = "flex";
-            console.log("hi2");
+
+            stopCameraShake();//force stop camera shaking
+
+            console.log("death i cleared: " + i);
+            clearInterval(t);
             return;
         }
         deathText.alpha = lerp(deathText.alpha, 1, 0.2);
@@ -418,6 +567,15 @@ document.onkeydown = e => {
         case 68: // D
             isTurningRight = true;
             break;
+
+        case 32: // Space
+            isPressingEnter = true;
+            break;
+
+        // Testing
+        case 101: // Num 5
+            iKilled( { "dead": "Bobby" });
+            break;
     }
 }
 
@@ -446,6 +604,13 @@ document.onkeyup = e => {
         case 68: // D
             isTurningRight = false;
             break;
+            
+        case 32: // Space
+            isPressingEnter = false;
+            car.accSpeed = NORMAL_SPEED;
+            boostIsEnabled = true;
+            break;
+
     }
 }
 

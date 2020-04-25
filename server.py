@@ -39,10 +39,27 @@ food = {random_food_id(): random_food() for _ in range(100)}
 VIEW_DISTANCE_X =  950 * 4
 VIEW_DISTANCE_Y =  530 * 4
 
+BASE_ADD_KILL_SCORE = 50
+KILL_ADD_SCORE_PERCENTAGE = 0.2
+
 def heart_beat():
     while True:
         socketio.sleep(HEART_BEAT_INTERVAL)
+
+        # Anti hack shit:
+        for anti_hack_id in cars:
+            c = cars[anti_hack_id]
+            try:
+                float(c['x'])
+                float(c['y'])
+            except:
+                c.active = False
+                
+
         for send_car_id in cars:
+
+            
+
             currCar = cars[send_car_id]
             cars_to_display = {}
 
@@ -58,12 +75,17 @@ def heart_beat():
                 view_x = VIEW_DISTANCE_X*2
                 view_y = VIEW_DISTANCE_Y*2
 
+
             for display_car_id in cars:
                 c = cars[display_car_id]
 
                 # Don't show inactive cars
                 if  c['active'] == False:
                     continue
+
+                
+
+
                 if currCar['x'] - view_x < c['x'] and currCar['x'] + view_x > c['x'] and \
                    currCar['y'] - view_y < c['y'] and currCar['y'] + view_y > c['y']:
                    cars_to_display[display_car_id] = c
@@ -100,26 +122,43 @@ def kill(id):
     if id in cars:
         if request.sid in cars and cars[id]['active'] == True and id in cars and cars[request.sid]['active'] == True:#check if killer isnt dead :D
 
-            # kill the car
-            cars[id]['active'] = False
+            dead_car = cars[id]
+            killer_car = cars[request.sid]
 
-            nameOfKiller = cars[request.sid]['name']
-            cars[request.sid]['score'] += 50 + int(cars[id]['score']/10)
+            # Kill the car
+            dead_car['active'] = False
 
-            emit('killed', {"killer": nameOfKiller}, room=id)#room is socket id, send to dead car
+            # Add score to killer
+            killer_car['score'] += BASE_ADD_KILL_SCORE
+            killer_car['score'] += int(dead_car['score'] * KILL_ADD_SCORE_PERCENTAGE)
+
+            # Send killer name to dead car
+            emit('dead', {"killer": killer_car['name']}, room=id)
+
+            # Confirm the kill to killer
+            emit("u killed", {"dead": dead_car['name']}, room=request.sid)
 
 @socketio.on("i died", namespace="/")
 def kill(id):
     if id in cars:
         if request.sid in cars and cars[id]['active'] == True and id in cars and cars[request.sid]['active'] == True:#check if killer isnt dead :D
 
-            # kill the car
-            cars[request.sid]['active'] = False
+            dead_car = cars[request.sid]
+            killer_car = cars[id]
 
-            nameOfKiller = cars[id]['name']
-            cars[id]['score'] += 50 + int(cars[request.sid]['score']/10)
+            # Kill the car
+            dead_car['active'] = False
 
-            emit('killed', {"killer": nameOfKiller}, room=request.sid)#room is socket id, send to dead car
+            # Add score 50 hase + percentage from dead car
+            killer_car['score'] += BASE_ADD_KILL_SCORE
+            killer_car['score'] += int(dead_car['score'] * KILL_ADD_SCORE_PERCENTAGE)
+
+            # Send killer name to dead car | (room is socket id)
+            emit('dead', {"killer": killer_car['name']}, room=request.sid)
+
+            # Confirm the kill to killer
+            emit("u killed", {"dead": dead_car['name']}, room=id)
+
 
 
 @socketio.on('connect', namespace="/")
