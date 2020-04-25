@@ -350,7 +350,6 @@ app.ticker.add((delta) => {
                 else if (car.doesKill(otherCars[id]))
                 {
                     car.dead = true;
-                    console.log("I killed");
                     socket.emit("kill", id);
                 }
             }
@@ -458,7 +457,6 @@ socket.on('heartBeat', (data)=> {
             }
 
             locCar.updateScore(receiveCarData['score']);
-            console.log(receiveCarData['acc']);
             locCar.acc = receiveCarData['acc'];
 
             if (receiveCarData['boost'])
@@ -526,6 +524,7 @@ socket.on('heartBeat', (data)=> {
 function iKilled(data)
 {
      console.log("kill auth");
+     killCountText.text = ++killCount;
      shakeCam();
      displayVictimText(data['dead']);
 }
@@ -535,7 +534,6 @@ function displayVictimText(name){
     fadeStrength = 0.001;
     let t = setInterval(()=>
     {
-        console.log("Goin");
         victimText.alpha -= fadeStrength;
         fadeStrength += 0.001;
         if (victimText.alpha <= 0.1)
