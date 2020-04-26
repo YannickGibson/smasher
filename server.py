@@ -52,12 +52,11 @@ def heart_beat():
             try:
                 float(c['x'])
                 float(c['y'])
-            except:
-                c.active = False
+            except: # Disable hacker
+                c['active'] = False
                 
 
         for send_car_id in cars:
-
             
 
             currCar = cars[send_car_id]
@@ -75,35 +74,43 @@ def heart_beat():
                 view_x = VIEW_DISTANCE_X*2
                 view_y = VIEW_DISTANCE_Y*2
 
-
             for display_car_id in cars:
-                c = cars[display_car_id]
 
+                c = cars[display_car_id]
+                
                 # Don't show inactive cars
                 if  c['active'] == False:
                     continue
 
-                
-
-
-                if currCar['x'] - view_x < c['x'] and currCar['x'] + view_x > c['x'] and \
-                   currCar['y'] - view_y < c['y'] and currCar['y'] + view_y > c['y']:
-                   cars_to_display[display_car_id] = c
-
-                # If playing show scoreboard info
+                # BEST CAR ... If playing show scoreboard info
                 if currCar['active'] == True:
                     personalInfo['scoreBoard'][display_car_id] = [c['name'], c['score'] ]
                     if bestScore < c['score']:
                         bestScore = c['score']
                         personalInfo['bestPlayerPos'] = [c['x'], c['y']]
 
+                # Next car if this is 'send car' 
+                if send_car_id == display_car_id:
+                    continue
+
+                
+
+                # Decide if to display car based on view distance
+                if currCar['x'] - view_x < c['x'] and currCar['x'] + view_x > c['x'] and \
+                   currCar['y'] - view_y < c['y'] and currCar['y'] + view_y > c['y']:
+                   cars_to_display[display_car_id] = c
+
+
             food_to_display = {}
             for food_id in food:
                 f = food[food_id]
+                # Decide if to display food based on view distance
                 if currCar['x'] - view_x < f['x'] and currCar['x'] + view_x > f['x'] and \
                    currCar['y'] - view_y < f['y'] and currCar['y'] + view_y > f['y']:
                    food_to_display[food_id] = f
+
             data ={ "cars": cars_to_display, "food": food_to_display, "info": personalInfo}
+
             socketio.emit("heartBeat", data, room=send_car_id)
 
 
@@ -178,7 +185,6 @@ def on_join(data):
     car['active'] = True
     car['x'] = (-MAP_SIDE + (MAP_SIDE*2) * random.random())/2
     car['y'] = (-MAP_SIDE + (MAP_SIDE*2) * random.random())/2
-    car['rot'] = random.random() * (math.pi * 2) #that's 360 in rad
 
     if data['name'] == "":
         car['name'] = "Glidester"

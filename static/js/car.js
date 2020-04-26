@@ -326,19 +326,25 @@ class Car{
     doesEat(food){
         // Point inside of Rectangle
         const M = [food.x, food.y];
-        const myVertices = this.getVertices(this);
-        const A = myVertices[0];
-        const B = myVertices[1];
-        const C = myVertices[2];
-        //const d = myVertices[3];// Dont need 'D'
-        const scalABAM = scalarProduct(sub(A, B), sub(A, M))
-        const scalABAB = scalarProduct(sub(A, B), sub(A, B))
-        const scalBCBM = scalarProduct(sub(B, C), sub(B, M))
-        const scalBCBC = scalarProduct(sub(B, C), sub(B, C))
-        if (0 <= scalABAM && scalABAM <= scalABAB &&
-            0 <= scalBCBM && scalBCBM <= scalBCBC)
+
+        const eaters = [this.carSprite, this.bumperSprite];
+
+        for (let i = 0; i < eaters.length; i++)
         {
-            return true;
+            const myVertices = this.getVertices(eaters[i]);
+            const A = myVertices[0];
+            const B = myVertices[1];
+            const C = myVertices[2];
+            //const d = myVertices[3];// Dont need 'D'
+            const scalABAM = scalarProduct(sub(A, B), sub(A, M))
+            const scalABAB = scalarProduct(sub(A, B), sub(A, B))
+            const scalBCBM = scalarProduct(sub(B, C), sub(B, M))
+            const scalBCBC = scalarProduct(sub(B, C), sub(B, C))
+            if (0 <= scalABAM && scalABAM <= scalABAB &&
+                0 <= scalBCBM && scalBCBM <= scalBCBC)
+            {
+                return true;
+            }
         }
 
         return false

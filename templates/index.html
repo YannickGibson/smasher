@@ -10,13 +10,21 @@
         <input id='name-input' name="savenick" type='username' maxlength="10">
         <input id='nameButton' value='Start' type='button'>
     </div>
+
+    <div class='mouseOptionDiv'>
+        <span class='mouseOptionSpan'> Mouse Controls </span>
+        <label class="switch">
+            <input id="mouseCheckbox" type="checkbox" checked>
+            <span class="slider round"></span>
+        </label>
+    </div>
 </div>
 
 
 <!--JQuery-->
-<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/jquery.min.js') }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/socket.io.min.js') }}"></script>
-<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/pixi.min.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/jquery.js') }}"></script>
+<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/socket.io.js') }}"></script><!-- isnt labeled'.min' even tho it is, cause sourcemap problem-->
+<script type="text/javascript" src="{{ url_for('static', filename='js/libraries/pixi.js') }}"></script>
 
 <script type="text/javascript" src="{{ url_for('static', filename='js/car.js') }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='js/food.js') }}"></script>

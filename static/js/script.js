@@ -52,13 +52,18 @@ function _shakeCamera(time){
     container.pivot.x = lerp(container.pivot.x, car.x - shakeCamIntensity + (shakeCamIntensity * 2) * Math.random(), 0.2);
     container.pivot.y = lerp(container.pivot.y, car.y - shakeCamIntensity + (shakeCamIntensity * 2) * Math.random(), 0.2);
 }
-function shakeCam(){
+function shakeCam(intensity, force = false){
+    // If cam is already shaking, and we dont need to force, then cancel shake
+    if (isCameraShaking && force == false){
+        return;
+    }
+    shakeCamIntensity = intensity;
     isCameraShaking = true;
 }
 function stopCameraShake(){
     isCameraShaking = false;
     shakeCamTime = 0 ;
-    shakeCamIntensity = maxShakeCamIntensity;
+    console.log("stop");
 }
 
 PIXI.utils.skipHello();
@@ -66,9 +71,10 @@ PIXI.utils.skipHello();
 
 let isCameraShaking = false;
 let shakeCamTime = 0;
-const maxShakeCamTime = 20;
-const maxShakeCamIntensity = 300;
-let shakeCamIntensity = maxShakeCamIntensity;
+const maxShakeCamTime = 200;
+let shakeCamIntensity;
+let killShakeIntensity = 300;
+let boostShakeIntensity = 20;
 const MAX_BOOSTBAR_WIDTH = 100;
 
 
@@ -207,6 +213,7 @@ guiContainer.addChild(fpsText);
 
 
 let overlay = document.getElementById("overlay");
+let mouseCheckbox = document.getElementById("mouseCheckbox");
 
 var car; 
 var otherCars = {};
@@ -220,7 +227,10 @@ let particles = [];
 let inGame = false;
 let killCount = 0;
 let boostChargePercentage = 1;
-let boostIsEnabled = true;
+let isBoostEnabled = true;
+let mouseControls = true;
+let mouseAngle;
+let mouseInGame = false; // On game start mouse over triggers, and sets this to true
 
 // Inputs
 let isTurningRight = false;
@@ -230,16 +240,18 @@ let isGoingBackward = false;
 let isPressingEnter = false;
 
 socket.on("join", initData =>{
+    startRot = (mouseControls) ? mouseAngle : Math.random() * (Math.PI * 2) ; // () ? Mouse angle : or random angle
     car = new Car(container,
         particles,
         initData.x,
         initData.y,
-        initData.rot,
+        startRot,
         initData.color,
         initData.name,
         initData.score
     )
     overlay.style.display = "none";
+    mouseControls = mouseCheckbox.checked;    
     inGame = true;
     playerPoint.tint = initData.color;
     console.log("joining...");
@@ -253,56 +265,91 @@ socket.on("join", initData =>{
     isGoingForward = false;
     isGoingBackward = false;
 });
-
-
 // Listen for animate update
 app.ticker.add((delta) => {
     // use delta to create frame-independent transform
     if (inGame){
 
-        //Acceleration
-        if (isGoingForward && isGoingBackward){
-            car.acc = 0;
+        if (mouseControls )
+        {
+            if(mouseInGame)// If mouse is hovering over canvas
+            {
+                let myRot = car.rotation % (Math.PI * 2);
+
+                // If -10 => 350 PS: Python modulo would do this by default :P
+                if (myRot < 0)
+                {
+                    myRot += Math.PI * 2;
+                }
+
+                //console.log(myRot * (180/Math.PI), mouseAngle * (180/Math.PI));
+                const deadSpace = radians(10)
+                if( Math.abs(myRot - mouseAngle) > deadSpace )
+                {
+                    if ( (mouseAngle - myRot < Math.PI && mouseAngle > myRot) || (myRot - mouseAngle > Math.PI  && myRot > mouseAngle) )
+                    {
+                        car.turn = 1;
+                    }
+                    else if ( (myRot - mouseAngle < Math.PI && mouseAngle < myRot) || (mouseAngle - myRot > Math.PI  && myRot < mouseAngle) )
+                    {
+                        car.turn = -1;
+                    }
+                }
+                else{
+                    car.turn = 0;
+                }
+            }
         }
-        else if (isGoingForward){
-            car.acc = 1;
-        }
-        else if (isGoingBackward){
-            car.acc = -.7;
-        }
-        else{
-            car.acc = 0;
+        else
+        {
+            //Acceleration
+            if (isGoingForward && isGoingBackward){
+                car.acc = 0;
+            }
+            else if (isGoingForward){
+                car.acc = 1;
+            }
+            else if (isGoingBackward){
+                car.acc = -.7;
+            }
+            else{
+                car.acc = 0;
+            }
+
+            // Turning 
+            if (isTurningLeft && isTurningRight){
+                car.turn = 0;
+            }
+            else if (isTurningLeft){
+                car.turn = -1;
+            }
+            else if (isTurningRight){
+                car.turn = 1;
+            }
+            else{
+                car.turn = 0;
+            }
         }
 
-        // Turning 
-        if (isTurningLeft && isTurningRight){
-            car.turn = 0;
-        }
-        else if (isTurningLeft){
-            car.turn = -1;
-        }
-        else if (isTurningRight){
-            car.turn = 1;
-        }
-        else{
-            car.turn = 0;
-        }
-        
+
         fpsText.text = "fps: " + parseInt(delta*60);
 
-        const scaleXY = lerp(container.scale.x, 1, 0.01);
-        container.scale.set(scaleXY, scaleXY);
+       /*  const scaleXY = lerp(container.scale.x, 1, 0.01);
+
+        container.scale.set(scaleXY); */
 
 
-        if (isPressingEnter && boostIsEnabled)
+        if (isPressingEnter && isBoostEnabled)
         {
             car.boostOn();
+
             boostChargePercentage -= 0.02 * delta;
             if (boostChargePercentage <= 0 )
             {
                 boostChargePercentage = 0;
                 car.boostOff();
-                boostIsEnabled = false;
+                stopCameraShake();
+                isBoostEnabled = false;
             }
             boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
         }
@@ -325,8 +372,8 @@ app.ticker.add((delta) => {
 
         bestPlayerPoint.x = bestPlayerPos[0] / MAP_SIDE * 56;
         bestPlayerPoint.y = bestPlayerPos[1] / MAP_SIDE * 56;
-
-        container.scale.set(1 - car.score/2000,1 - car.score/2000);
+        //car.score/2000
+        container.scale.set(1- constrain(car.score/2000 ,0 , 0.5) );
         //Score Board
         scoreBoard.updateBoard(scoreBoardInfo, car, socket.id);
         
@@ -336,7 +383,7 @@ app.ticker.add((delta) => {
             x: parseInt(car.x),
             y: parseInt(car.y),
             rot: car.rotation,
-            boost: isPressingEnter,
+            boost: isBoostEnabled && isPressingEnter,
             acc: car.acc
         }
         socket.emit("myCar", myData);
@@ -432,44 +479,42 @@ socket.on('heartBeat', (data)=> {
     for (id in othersData)
     {
         const receiveCarData = othersData[id]
-        if (id != socket.id){
-            let locCar; 
-            if (otherCars.hasOwnProperty(id)){
-                locCar = otherCars[id];
-                // Set angle first, because angle depends on positions of car components!!! (been solving this for ~1 hour)
-                locCar["rotation"] = lerp(locCar['rotation'], receiveCarData['rot'], 0.2);
-                locCar.setPos(
-                    lerp(locCar.x, receiveCarData['x'], 0.2),
-                    lerp(locCar.y, receiveCarData['y'], 0.2)
-                );
-            }
-            else{//new car
-                locCar = new Car(
-                    container,
-                    particles,
-                    receiveCarData['x'],
-                    receiveCarData['y'],
-                    receiveCarData['rot'],
-                    receiveCarData['color'],
-                    receiveCarData['name'],
-                    receiveCarData['score']
-                );
-                otherCars[id] = locCar;// Add car to dictionary
-                //console.log("New Car has been added");
-            }
-
-            locCar.updateScore(receiveCarData['score']);
-            locCar.acc = receiveCarData['acc'];
-
-            if (receiveCarData['boost'])
-            {
-                locCar.boostOn();
-            } 
-            else
-            {
-                locCar.boostOff();
-            } 
+        let locCar; 
+        if (otherCars.hasOwnProperty(id)){
+            locCar = otherCars[id];
+            // Set angle first, because angle depends on positions of car components!!! (been solving this for ~1 hour)
+            locCar["rotation"] = lerp(locCar['rotation'], receiveCarData['rot'], 0.2);
+            locCar.setPos(
+                lerp(locCar.x, receiveCarData['x'], 0.2),
+                lerp(locCar.y, receiveCarData['y'], 0.2)
+            );
         }
+        else{//new car
+            locCar = new Car(
+                container,
+                particles,
+                receiveCarData['x'],
+                receiveCarData['y'],
+                receiveCarData['rot'],
+                receiveCarData['color'],
+                receiveCarData['name'],
+                receiveCarData['score']
+            );
+            otherCars[id] = locCar;// Add car to dictionary
+            //console.log("New Car has been added");
+        }
+
+        locCar.updateScore(receiveCarData['score']);
+        locCar.acc = receiveCarData['acc'];
+
+        if (receiveCarData['boost'])
+        {
+            locCar.boostOn();
+        } 
+        else
+        {
+            locCar.boostOff();
+        } 
     }
     for (localId in otherCars){
         if ( !othersData.hasOwnProperty(localId) ){
@@ -478,6 +523,7 @@ socket.on('heartBeat', (data)=> {
             delete otherCars[localId];
         }
     }
+
     info = data['info'];
     // We can also say: if player score is present scoreboard is too
     if ( info.hasOwnProperty('score'))
@@ -527,7 +573,7 @@ function iKilled(data)
 {
      console.log("kill auth");
      killCountText.text = ++killCount;
-     shakeCam();
+     shakeCam(killShakeIntensity, true);
      displayVictimText(data['dead']);
 }
 function displayVictimText(name){
@@ -541,6 +587,7 @@ function displayVictimText(name){
         if (victimText.alpha <= 0.1)
         {
             victimText.alpha = 0;
+            stopCameraShake();
             clearInterval(t);
         }
 
@@ -553,7 +600,7 @@ socket.on("dead", (data)=>{
 
     inGame = false;
     console.log("you died");
-    shakeCam();
+    shakeCam(killShakeIntensity, true);
 
     deathText.text =  "You were killed by " + data.killer;
     
@@ -584,7 +631,61 @@ socket.on("dead", (data)=>{
         i++;
     },30)
 });
+app.stage.interactive = true;
+app.stage.on("pointermove", (e)=>
+{
 
+    if (mouseControls)
+    {
+        
+        const pos = e.data.global;
+        // [a, b] is vector = center-pos
+        const a = pos.x - window.innerWidth/2;
+        const b = pos.y - window.innerHeight/2;
+
+
+        mouseAngle = Math.atan2(b, a);
+        mouseAngle =  (mouseAngle + Math.PI * 2.5) % (Math.PI * 2) // Offset
+
+        if (inGame)
+        {
+            const c = Math.sqrt(a * a + b * b);
+            if (c < 40){
+                car.acc = 0;
+            }
+            else{
+                car.acc = 1;
+            }
+        }
+    }
+});
+app.view.addEventListener("pointerdown", ()=>
+{
+    isPressingEnter = true;
+    shakeCam(boostShakeIntensity);
+});
+app.view.addEventListener("pointerup", ()=>
+{
+    isPressingEnter = false;
+    isBoostEnabled = true;
+    if (inGame)
+    {
+        car.boostOff();
+        stopCameraShake();
+    }
+});
+app.view.addEventListener("mouseout", ()=>
+{
+    mouseInGame = false;
+    if (mouseControls)
+    {
+        car.acc = 0;
+    }
+});  
+app.view.addEventListener("mouseover", ()=>
+{
+    mouseInGame = true;
+});
 
 document.onkeydown = e => 
 {/* 
@@ -653,8 +754,11 @@ document.onkeyup = e =>
             
         case 32: // Space
             isPressingEnter = false;
-            car.boostOff();
-            boostIsEnabled = true;
+            isBoostEnabled = true;
+            if (inGame)
+            {
+                car.boostOff();
+            }
             break;
 
     }

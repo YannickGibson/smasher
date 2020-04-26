@@ -8,5 +8,6 @@ speed boost
 zpomaleni rotace u velkych aut
 
 yannick
-kill camera when he kills him self
+kill camera when he kills him self # lol wtf
 kill counter
+bumper eats food too
