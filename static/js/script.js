@@ -345,8 +345,6 @@ PIXI.Loader.shared.load( (loader, resources) =>
 
         if (isPressingEnter && isBoostEnabled)
         {
-            car.boostOn();
-
             boostChargePercentage -= 0.02 * delta;
             if (boostChargePercentage <= 0 )
             {
@@ -366,7 +364,7 @@ PIXI.Loader.shared.load( (loader, resources) =>
            boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
         }
         
-        car.move(delta);
+        car.update(delta);
         car.updateTurboEmit(delta);
 
         
@@ -374,8 +372,8 @@ PIXI.Loader.shared.load( (loader, resources) =>
         playerPoint.x = car.x / Car.MAP_SIDE * 56;
         playerPoint.y = car.y / Car.MAP_SIDE * 56;
 
-        bestPlayerPoint.x = bestPlayerPos[0] / Car.MAP_SIDE * 56;
-        bestPlayerPoint.y = bestPlayerPos[1] / Car.MAP_SIDE * 56;
+        bestPlayerPoint.x = lerp(bestPlayerPoint.x, bestPlayerPos[0] / Car.MAP_SIDE * 56, 0.2);
+        bestPlayerPoint.y = lerp(bestPlayerPoint.y, bestPlayerPos[1] / Car.MAP_SIDE * 56, 0.2);
         //car.score/2000
         container.scale.set(1- constrain(car.score/4000 ,0 , 0.5) );
         //Score Board
@@ -394,7 +392,6 @@ PIXI.Loader.shared.load( (loader, resources) =>
         socket.emit("myCar", myData);
 
         for ( id in otherCars) {
-            otherCars[id].move(delta);
             if(car.dead == false)
             {
                 if(otherCars[id].doesKill(car))
@@ -452,8 +449,9 @@ PIXI.Loader.shared.load( (loader, resources) =>
         const scaleXY = lerp(container.scale.x, 0.5,0.1);
         container.scale.set(scaleXY, scaleXY);
     }
+    //No matter if the game is running
     for (i in otherCars){
-        otherCars[i].updateTurboEmit(delta);
+        otherCars[i].update(delta);
     }
     for (let i = particles.length - 1; i >= 0; i--) 
     {
@@ -768,6 +766,7 @@ class Car
         this.particles = particles;
 
         this.turboSound = null;
+        this.stopTurboSound = false;
     }
     get width(){
         return this.carSprite.width;
@@ -843,6 +842,23 @@ class Car
         this.yVel *= 0.93;
         this.speed *= 0.93;
     }
+    update(delta){
+        this.move(delta);
+        this.updateTurboEmit(delta);
+
+        if (this.stopTurboSound == true){
+            if (this.turboSound.volume <= 0.1)
+            {
+                this.stopTurboSound = false;
+                this.turboSound.stop();
+                this.turboSound = null;
+            }
+            else{
+                console.log( 1 - (this.turboSound.volume - 0.001));
+                this.turboSound.volume -= 1 / this.turboSound.volume * 0.1;
+            }
+        }
+    }
     updateTurboEmit(delta){
         // Turbo
         if(this.boostIsOn){
@@ -895,11 +911,8 @@ class Car
         this.boostIsOn = true;
         this.accSpeed = Car.BOOST_SPEED;
 
-        if (this.turboSound != null && this.turboSound.volume == 0){
-            this.turboSound.stop();
-            this.turboSound = null;
-        }
         if (this.turboSound == null){
+            console.log("play")
             this.turboSound = PIXI.sound.Sound.from(sounds.boost);
             this.turboSound.play();
         }
@@ -911,7 +924,7 @@ class Car
 
         if (this.turboSound != null)
         {
-            this.turboSound.volume = 0.0;
+            this.stopTurboSound = true;
         }
     }
     doesKill(otherCar){
@@ -1395,6 +1408,7 @@ app.view.addEventListener("pointerdown", ()=>
     {
         isPressingEnter = true;
         if (inGame){
+            car.boostOn();
             shakeCam(boostShakeIntensity);
         }
     }
@@ -1451,6 +1465,9 @@ document.onkeydown = e =>
 
         case 32: // Space
             isPressingEnter = true;
+            if (isInGame){
+                car.boostOn();
+            }
             break;
 
         // Testing
