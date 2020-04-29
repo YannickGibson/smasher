@@ -38,13 +38,20 @@ window.onfocus = function() {
 window.onblur = function() {
     console.log("blurred");
     focused = false;
-    car.acc = 0;
-    car.boostOff();
-    isBoostEnabled = false;
+    if (inGame){
 
-    isGoingForward = false;
-    isGoingBackward = false;
-    isPressingEnter = false;
+        socket.emit("focusout");
+
+        isBoostEnabled = true;
+        isPressingEnter = false;
+        car.boostOff();
+        /* car.acc = 0;
+
+        isGoingForward = false;
+        isGoingBackward = false;
+        */
+    }
+    
 };
 
 PIXI.utils.skipHello();
@@ -255,6 +262,309 @@ loader.load( (loader, resources) =>
     boostCharge.alpha = 0.5;
     boostContainer.addChild(boostCharge);
 
+
+
+    
+    // Listen for animate update
+    app.ticker.add((delta) => {
+    // use delta to create frame-independent transform
+    if (inGame){
+
+
+        if (mouseControls )
+        {
+            let myRot = car.rotation % (Math.PI * 2);
+
+            // If -10 => 350 PS: Python modulo would do this by default :P
+            if (myRot < 0)
+            {
+                myRot += Math.PI * 2;
+            }
+
+            //console.log(myRot * (180/Math.PI), mouseAngle * (180/Math.PI));
+            const deadSpace = radians(10)
+            if( Math.abs(myRot - mouseAngle) > deadSpace )
+            {
+                if ( (mouseAngle - myRot < Math.PI && mouseAngle > myRot) || (myRot - mouseAngle > Math.PI  && myRot > mouseAngle) )
+                {
+                    car.turn = 1;
+                }
+                else if ( (myRot - mouseAngle < Math.PI && mouseAngle < myRot) || (mouseAngle - myRot > Math.PI  && myRot < mouseAngle) )
+                {
+                    car.turn = -1;
+                }
+            }
+            else{
+                car.turn = 0;
+            }
+        }
+        else
+        {
+            //Acceleration
+            if (isGoingForward && isGoingBackward){
+                car.acc = 0;
+            }
+            else if (isGoingForward){
+                car.acc = 1;
+            }
+            else if (isGoingBackward){
+                car.acc = -.7;
+            }
+            else{
+                car.acc = 0;
+            }
+
+            // Turning 
+            if (isTurningLeft && isTurningRight){
+                car.turn = 0;
+            }
+            else if (isTurningLeft){
+                car.turn = -1;
+            }
+            else if (isTurningRight){
+                car.turn = 1;
+            }
+            else{
+                car.turn = 0;
+            }
+        }
+
+
+        fpsText.text = "fps: " + parseInt(delta*60);
+
+       /*  const scaleXY = lerp(container.scale.x, 1, 0.01);
+
+        container.scale.set(scaleXY); */
+
+
+        if (isPressingEnter && isBoostEnabled)
+        {
+            car.boostOn();
+
+            boostChargePercentage -= 0.02 * delta;
+            if (boostChargePercentage <= 0 )
+            {
+                boostChargePercentage = 0;
+                car.boostOff();
+                stopCameraShake();
+                isBoostEnabled = false;
+            }
+            boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
+        }
+        else if (boostChargePercentage<1)
+        {
+           boostChargePercentage += 0.008 * delta;
+           if (boostChargePercentage >= 1 ){
+               boostChargePercentage = 1;
+           }
+           boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
+        }
+        
+        car.move(delta);
+        car.updateTurboEmit(delta);
+
+        
+        // GUI
+        playerPoint.x = car.x / Car.MAP_SIDE * 56;
+        playerPoint.y = car.y / Car.MAP_SIDE * 56;
+
+        bestPlayerPoint.x = bestPlayerPos[0] / Car.MAP_SIDE * 56;
+        bestPlayerPoint.y = bestPlayerPos[1] / Car.MAP_SIDE * 56;
+        //car.score/2000
+        container.scale.set(1- constrain(car.score/4000 ,0 , 0.5) );
+        //Score Board
+        scoreboard.updateBoard(scoreboardInfo, car, socket.id);
+        
+
+
+        myData = {
+            x: parseInt(car.x),
+            y: parseInt(car.y),
+            rot: car.rotation,
+            boost: isBoostEnabled && isPressingEnter,
+            acc: car.acc,
+            turn: car.turn
+        }
+        socket.emit("myCar", myData);
+
+        for ( id in otherCars) {
+            otherCars[id].move(delta);
+            if(car.dead == false)
+            {
+                if(otherCars[id].doesKill(car))
+                {
+                    socket.emit("i died", id);
+                }
+                else if (car.doesKill(otherCars[id]))
+                {
+                    car.dead = true;
+                    socket.emit("kill", id);
+                }
+            }
+            //first need to set acc, rotate
+        }
+        let foodIdsToDel = []
+        for (foodId in food){
+            if (
+                food[foodId].isBeingDigested == false &&
+                car.doesEat(food[foodId])
+            )
+            {
+
+                // So we cannot emit 5x times instead of 1x cause we wait for heartbeat
+                // Cuz hertbeat will send us the food back anyways cause of the delay
+                food[foodId].isBeingDigested = true;
+
+                vanishingFood.push(food[foodId]);
+
+                //console.log("Ham");
+                socket.emit("eat", foodId);
+            }
+        }
+        for (i in foodIdsToDel){
+            delete food[foodIdsToDel[i]];
+        }
+
+        for (i in vanishingFood)
+        {
+            if (vanishingFood[i].sprite.scale.x < 0.1){
+                //console.log("Food Vanished!");
+                vanishingFood[i].wipe();
+                vanishingFood.splice(i,1);
+            }
+            else{
+                const newScale = lerp(vanishingFood[i].sprite.scale.x, 0, 0.2); 
+                vanishingFood[i].sprite.scale.set(newScale, newScale);
+            }
+            
+        }
+    }
+    else{//Not in game
+        const scaleXY = lerp(container.scale.x, 0.5,0.1);
+        container.scale.set(scaleXY, scaleXY);
+    }
+    for (i in otherCars){
+        otherCars[i].updateTurboEmit(delta);
+    }
+    for (let i = particles.length - 1; i >= 0; i--) 
+    {
+        particles[i].update();
+        
+        if (particles[i].finished())
+        {
+            particles[i].wipe(container);
+            particles.splice(i, 1);
+        }
+    }
+
+
+    if (car != null){//camera follows car only if car exists :D
+
+        if (isCameraShaking){
+            _shakeCamera(delta);
+        }
+        else if (container != null){
+            moveCamera();
+        }
+    }
+
+
+    });
+
+
+    
+    socket.on('heartBeat', (data)=> 
+    {
+        othersData = data["cars"];
+        for (id in othersData)
+        {
+            const receiveCarData = othersData[id]
+            let locCar; 
+            if (otherCars.hasOwnProperty(id)){
+                locCar = otherCars[id];
+                // Set angle first, because angle depends on positions of car components!!! (been solving this for ~1 hour)
+                locCar["rotation"] = lerp(locCar['rotation'], receiveCarData['rot'], 0.2);
+                locCar.setPos(
+                    lerp(locCar.x, receiveCarData['x'], 0.2),
+                    lerp(locCar.y, receiveCarData['y'], 0.2)
+                );
+            }
+            else{//new car
+                locCar = new Car(
+                    container,
+                    particles,
+                    receiveCarData['x'],
+                    receiveCarData['y'],
+                    receiveCarData['rot'],
+                    receiveCarData['color'],
+                    receiveCarData['name'],
+                    receiveCarData['score']
+                );
+                otherCars[id] = locCar;// Add car to dictionary
+                //console.log("New Car has been added");
+            }
+
+            locCar.updateScore(receiveCarData['score']);
+            locCar.acc = receiveCarData['acc'];
+            locCar.turn = receiveCarData['turn'];
+
+            if (receiveCarData['boost'])
+            {
+                locCar.boostOn();
+            } 
+            else
+            {
+                locCar.boostOff();
+            } 
+        }
+        for (localId in otherCars){
+            if ( !othersData.hasOwnProperty(localId) ){
+                //console.log("Car has been deleted");
+                otherCars[localId].wipe();
+                delete otherCars[localId];
+            }
+        }
+
+        info = data['info'];
+        // We can also say: if player score is present scoreboard is too
+        if ( info.hasOwnProperty('score'))
+        {
+            if (info['score'] !== car.score)
+            {
+                car.updateScore(info['score']);
+            }
+
+            scoreboardInfo = info['scoreboard'];
+
+            bestPlayerPos = info['bestPlayerPos'];
+
+        }
+
+        foodData = data["food"];
+        // Food addition
+        for (foodId in foodData){
+            if ( !food.hasOwnProperty(foodId) ){
+                const _x = foodData[foodId].x,
+                _y = foodData[foodId].y,
+                _color = foodData[foodId].color;
+                const newFood = new Food(container, _x, _y, _color);
+                food[foodId] = newFood;
+                //console.log("New Food!");
+            }
+        }
+        // Food deletion
+                
+        if(foodData != null ){// foodData != null ---- if its not empty !! or i get Error
+
+            for (localFoodId in food){
+                if (!foodData.hasOwnProperty(localFoodId) )
+                {
+                    food[localFoodId].wipe()
+                    delete food[localFoodId];
+                }
+            }
+        }
+    });
 
 });
 function calcScreenSize(){
@@ -939,307 +1249,7 @@ socket.on("join", initData =>{
     overlay.style.display = "none";
     inGame = true;
 });
-// Listen for animate update
-app.ticker.add((delta) => {
-    // use delta to create frame-independent transform
-    if (inGame){
 
-
-        if (mouseControls )
-        {
-            let myRot = car.rotation % (Math.PI * 2);
-
-            // If -10 => 350 PS: Python modulo would do this by default :P
-            if (myRot < 0)
-            {
-                myRot += Math.PI * 2;
-            }
-
-            //console.log(myRot * (180/Math.PI), mouseAngle * (180/Math.PI));
-            const deadSpace = radians(10)
-            if( Math.abs(myRot - mouseAngle) > deadSpace )
-            {
-                if ( (mouseAngle - myRot < Math.PI && mouseAngle > myRot) || (myRot - mouseAngle > Math.PI  && myRot > mouseAngle) )
-                {
-                    car.turn = 1;
-                }
-                else if ( (myRot - mouseAngle < Math.PI && mouseAngle < myRot) || (mouseAngle - myRot > Math.PI  && myRot < mouseAngle) )
-                {
-                    car.turn = -1;
-                }
-            }
-            else{
-                car.turn = 0;
-            }
-        }
-        else
-        {
-            //Acceleration
-            if (isGoingForward && isGoingBackward){
-                car.acc = 0;
-            }
-            else if (isGoingForward){
-                car.acc = 1;
-            }
-            else if (isGoingBackward){
-                car.acc = -.7;
-            }
-            else{
-                car.acc = 0;
-            }
-
-            // Turning 
-            if (isTurningLeft && isTurningRight){
-                car.turn = 0;
-            }
-            else if (isTurningLeft){
-                car.turn = -1;
-            }
-            else if (isTurningRight){
-                car.turn = 1;
-            }
-            else{
-                car.turn = 0;
-            }
-        }
-
-
-        fpsText.text = "fps: " + parseInt(delta*60);
-
-       /*  const scaleXY = lerp(container.scale.x, 1, 0.01);
-
-        container.scale.set(scaleXY); */
-
-
-        if (isPressingEnter && isBoostEnabled)
-        {
-            car.boostOn();
-
-            boostChargePercentage -= 0.02 * delta;
-            if (boostChargePercentage <= 0 )
-            {
-                boostChargePercentage = 0;
-                car.boostOff();
-                stopCameraShake();
-                isBoostEnabled = false;
-            }
-            boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
-        }
-        else if (boostChargePercentage<1)
-        {
-           boostChargePercentage += 0.008 * delta;
-           if (boostChargePercentage >= 1 ){
-               boostChargePercentage = 1;
-           }
-           boostCharge.width = boostChargePercentage * MAX_BOOSTBAR_WIDTH;
-        }
-        
-        car.move(delta);
-        car.updateTurboEmit(delta);
-
-        
-        // GUI
-        playerPoint.x = car.x / Car.MAP_SIDE * 56;
-        playerPoint.y = car.y / Car.MAP_SIDE * 56;
-
-        bestPlayerPoint.x = bestPlayerPos[0] / Car.MAP_SIDE * 56;
-        bestPlayerPoint.y = bestPlayerPos[1] / Car.MAP_SIDE * 56;
-        //car.score/2000
-        container.scale.set(1- constrain(car.score/4000 ,0 , 0.5) );
-        //Score Board
-        scoreboard.updateBoard(scoreboardInfo, car, socket.id);
-        
-
-
-        myData = {
-            x: parseInt(car.x),
-            y: parseInt(car.y),
-            rot: car.rotation,
-            boost: isBoostEnabled && isPressingEnter,
-            acc: car.acc
-        }
-        socket.emit("myCar", myData);
-
-        for ( id in otherCars) {
-            otherCars[id].move(delta);
-            if(car.dead == false)
-            {
-                if(otherCars[id].doesKill(car))
-                {
-                    socket.emit("i died", id);
-                }
-                else if (car.doesKill(otherCars[id]))
-                {
-                    car.dead = true;
-                    socket.emit("kill", id);
-                }
-            }
-            //first need to set acc, rotate
-        }
-        let foodIdsToDel = []
-        for (foodId in food){
-            if (
-                food[foodId].isBeingDigested == false &&
-                car.doesEat(food[foodId])
-            )
-            {
-
-                // So we cannot emit 5x times instead of 1x cause we wait for heartbeat
-                // Cuz hertbeat will send us the food back anyways cause of the delay
-                food[foodId].isBeingDigested = true;
-
-                vanishingFood.push(food[foodId]);
-
-                //console.log("Ham");
-                socket.emit("eat", foodId);
-            }
-        }
-        for (i in foodIdsToDel){
-            delete food[foodIdsToDel[i]];
-        }
-
-        for (i in vanishingFood)
-        {
-            if (vanishingFood[i].sprite.scale.x < 0.1){
-                //console.log("Food Vanished!");
-                vanishingFood[i].wipe();
-                vanishingFood.splice(i,1);
-            }
-            else{
-                const newScale = lerp(vanishingFood[i].sprite.scale.x, 0, 0.2); 
-                vanishingFood[i].sprite.scale.set(newScale, newScale);
-            }
-            
-        }
-    }
-    else{//Not in game
-        const scaleXY = lerp(container.scale.x, 0.5,0.1);
-        container.scale.set(scaleXY, scaleXY);
-    }
-    for (i in otherCars){
-        otherCars[i].updateTurboEmit(delta);
-    }
-    for (let i = particles.length - 1; i >= 0; i--) 
-    {
-        particles[i].update();
-        
-        if (particles[i].finished())
-        {
-            particles[i].wipe(container);
-            particles.splice(i, 1);
-        }
-    }
-
-
-    if (car != null){//camera follows car only if car exists :D
-
-        if (isCameraShaking){
-            _shakeCamera(delta);
-        }
-        else if (container != null){
-            moveCamera();
-        }
-    }
-
-
-});
-
-
-
-socket.on('heartBeat', (data)=> {
-    othersData = data["cars"];
-    for (id in othersData)
-    {
-        const receiveCarData = othersData[id]
-        let locCar; 
-        if (otherCars.hasOwnProperty(id)){
-            locCar = otherCars[id];
-            // Set angle first, because angle depends on positions of car components!!! (been solving this for ~1 hour)
-            locCar["rotation"] = lerp(locCar['rotation'], receiveCarData['rot'], 0.2);
-            locCar.setPos(
-                lerp(locCar.x, receiveCarData['x'], 0.2),
-                lerp(locCar.y, receiveCarData['y'], 0.2)
-            );
-        }
-        else{//new car
-            locCar = new Car(
-                container,
-                particles,
-                receiveCarData['x'],
-                receiveCarData['y'],
-                receiveCarData['rot'],
-                receiveCarData['color'],
-                receiveCarData['name'],
-                receiveCarData['score']
-            );
-            otherCars[id] = locCar;// Add car to dictionary
-            //console.log("New Car has been added");
-        }
-
-        locCar.updateScore(receiveCarData['score']);
-        locCar.acc = receiveCarData['acc'];
-
-        if (receiveCarData['boost'])
-        {
-            locCar.boostOn();
-        } 
-        else
-        {
-            locCar.boostOff();
-        } 
-    }
-    for (localId in otherCars){
-        if ( !othersData.hasOwnProperty(localId) ){
-            //console.log("Car has been deleted");
-            otherCars[localId].wipe();
-            delete otherCars[localId];
-        }
-    }
-
-    info = data['info'];
-    // We can also say: if player score is present scoreboard is too
-    if ( info.hasOwnProperty('score'))
-    {
-        if (info['score'] !== car.score)
-        {
-            car.updateScore(info['score']);
-        }
-
-        scoreboardInfo = info['scoreboard'];
-
-        bestPlayerPos = info['bestPlayerPos'];
-
-    }
-
-    foodData = data["food"];
-    // Food addition
-    for (foodId in foodData){
-        if ( !food.hasOwnProperty(foodId) ){
-            const _x = foodData[foodId].x,
-            _y = foodData[foodId].y,
-            _color = foodData[foodId].color;
-            const newFood = new Food(container, _x, _y, _color);
-            food[foodId] = newFood;
-            //console.log("New Food!");
-        }
-    }
-    // Food deletion
-            
-    if(foodData != null ){// foodData != null ---- if its not empty !! or i get Error
-
-        for (localFoodId in food){
-            if (!foodData.hasOwnProperty(localFoodId) )
-            {
-                food[localFoodId].wipe()
-                delete food[localFoodId];
-            }
-        }
-    }
-
-    
-
-    
-});
 
 function iKilled(data)
 {

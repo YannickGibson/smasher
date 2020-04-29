@@ -120,11 +120,21 @@ def heart_beat():
 @socketio.on('myCar', namespace="/")
 def update_my_car(car):
     if request.sid in cars:
-        cars[request.sid]['x'] = car['x'] if isinstance(car['x'], int) else 0
-        cars[request.sid]['y'] = car['y'] if isinstance(car['y'], int) else 0
-        cars[request.sid]['rot'] = car['rot'] if isinstance(car['rot'], float) or isinstance(car['rot'], int) else 0
-        cars[request.sid]['boost'] = car['boost'] if isinstance(car['boost'], bool) else False
-        cars[request.sid]['acc'] = car['acc'] if isinstance(car['acc'], int) else 0
+
+        # check if data fits type
+        if 'x' in car and 'y' in car and 'rot' in car and 'boost' in car and 'acc' in car and 'turn' in car and \
+        isinstance(car['x'], int) and isinstance(car['y'], int) and \
+        (isinstance(car['rot'], float) or isinstance(car['rot'], int)) and \
+        isinstance(car['boost'], bool) and \
+        (isinstance(car['acc'], float) or isinstance(car['acc'], int)) and \
+        isinstance(car['turn'], int):
+
+            cars[request.sid]['x'] = car['x']
+            cars[request.sid]['y'] = car['y']
+            cars[request.sid]['rot'] = car['rot']
+            cars[request.sid]['boost'] = car['boost']
+            cars[request.sid]['acc'] = car['acc']   
+            cars[request.sid]['turn'] = car['turn']
 
 
 @socketio.on("kill", namespace="/")
@@ -195,6 +205,8 @@ def on_join(data):
 
     car['color'] = random_color()
     car['score'] = 0
+    car['acc'] = 0
+    car['turn'] = 0
 
     emit("join", car)
 
@@ -206,10 +218,11 @@ def on_eat(food_id):
         food[random_food_id()] = random_food()
         cars[request.sid]['score'] += 5
 
+@socketio.on('focusout', namespace="/")
 def on_blur():
     if request.sid in cars:
-        cars[request.sid]['boost'] = false;
-        cars[request.sid]['boost'] = false;
+        cars[request.sid]['boost'] = False;
+        cars[request.sid]['acc'] = 0;
 
 
 @socketio.on('disconnect', namespace="/")
