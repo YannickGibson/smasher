@@ -40,6 +40,7 @@ window.onblur = function() {
     focused = false;
     car.acc = 0;
     car.boostOff();
+    isBoostEnabled = false;
 };
 
 PIXI.utils.skipHello();
