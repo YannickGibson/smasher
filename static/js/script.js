@@ -41,6 +41,10 @@ window.onblur = function() {
     car.acc = 0;
     car.boostOff();
     isBoostEnabled = false;
+
+    isGoingForward = false;
+    isGoingBackward = false;
+    isPressingEnter = false;
 };
 
 PIXI.utils.skipHello();
