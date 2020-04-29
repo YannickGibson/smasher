@@ -483,6 +483,7 @@ class Car
     }
     move(delta)
     {
+        // Force movement forwards when boosting
         if (this.boostIsOn){
             this.acc = 1;
         }
@@ -1053,7 +1054,7 @@ app.ticker.add((delta) => {
         socket.emit("myCar", myData);
 
         for ( id in otherCars) {
-            otherCars[id].move(delta);
+            //otherCars[id].move(delta);
             if(car.dead == false)
             {
                 if(otherCars[id].doesKill(car))
