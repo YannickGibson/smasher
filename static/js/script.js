@@ -1054,7 +1054,7 @@ app.ticker.add((delta) => {
         socket.emit("myCar", myData);
 
         for ( id in otherCars) {
-            //otherCars[id].move(delta);
+            otherCars[id].move(delta);
             if(car.dead == false)
             {
                 if(otherCars[id].doesKill(car))
@@ -1170,7 +1170,7 @@ socket.on('heartBeat', (data)=> {
         }
 
         locCar.updateScore(receiveCarData['score']);
-        //locCar.acc = receiveCarData['acc'];
+        locCar.acc = receiveCarData['acc'];
 
         if (receiveCarData['boost'])
         {
