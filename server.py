@@ -36,8 +36,8 @@ def random_food():
 
 food = {random_food_id(): random_food() for _ in range(100)}
 
-VIEW_DISTANCE_X =  950 * 4
-VIEW_DISTANCE_Y =  530 * 4
+VIEW_DISTANCE_X =  950 # * 4
+VIEW_DISTANCE_Y =  530 # * 4
 
 BASE_ADD_KILL_SCORE = 50
 KILL_ADD_SCORE_PERCENTAGE = 0.2
@@ -67,9 +67,11 @@ def heart_beat():
             personalInfo = {}
             bestScore = -1;
             if currCar['active'] == True:
-                view_x = VIEW_DISTANCE_X
-                view_y = VIEW_DISTANCE_Y
-                personalInfo = {"score" : currCar['score'], "scoreBoard": {}, "bestPlayerPos": []}
+                carScale = 1 - (currCar['score'] / 4000) 
+                mapMult = 1 / carScale
+                view_x = VIEW_DISTANCE_X * mapMult
+                view_y = VIEW_DISTANCE_Y * mapMult
+                personalInfo = {"score" : currCar['score'], "scoreboard": {}, "bestPlayerPos": []}
             else:
                 view_x = VIEW_DISTANCE_X*2
                 view_y = VIEW_DISTANCE_Y*2
@@ -84,7 +86,7 @@ def heart_beat():
 
                 # BEST CAR ... If playing show scoreboard info
                 if currCar['active'] == True:
-                    personalInfo['scoreBoard'][display_car_id] = [c['name'], c['score'] ]
+                    personalInfo['scoreboard'][display_car_id] = [c['name'], c['score'] ]
                     if bestScore < c['score']:
                         bestScore = c['score']
                         personalInfo['bestPlayerPos'] = [c['x'], c['y']]
@@ -118,11 +120,11 @@ def heart_beat():
 @socketio.on('myCar', namespace="/")
 def update_my_car(car):
     if request.sid in cars:
-        cars[request.sid]['x'] = car['x']
-        cars[request.sid]['y'] = car['y']
-        cars[request.sid]['rot'] = car['rot']
-        cars[request.sid]['boost'] = car['boost']
-        cars[request.sid]['acc'] = car['acc']
+        cars[request.sid]['x'] = car['x'] if isinstance(car['x'], int) else 0
+        cars[request.sid]['y'] = car['y'] if isinstance(car['y'], int) else 0
+        cars[request.sid]['rot'] = car['rot'] if isinstance(car['rot'], float) or isinstance(car['rot'], int) else 0
+        cars[request.sid]['boost'] = car['boost'] if isinstance(car['boost'], bool) else False
+        cars[request.sid]['acc'] = car['acc'] if isinstance(car['acc'], int) else 0
 
 
 @socketio.on("kill", namespace="/")
