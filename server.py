@@ -206,6 +206,12 @@ def on_eat(food_id):
         food[random_food_id()] = random_food()
         cars[request.sid]['score'] += 5
 
+def on_blur():
+    if request.sid in cars:
+        cars[request.sid]['boost'] = false;
+        cars[request.sid]['boost'] = false;
+
+
 @socketio.on('disconnect', namespace="/")
 def disconnected():
     if request.sid in cars:

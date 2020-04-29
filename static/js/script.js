@@ -38,6 +38,8 @@ window.onfocus = function() {
 window.onblur = function() {
     console.log("blurred");
     focused = false;
+    car.acc = 0;
+    car.boostOff();
 };
 
 PIXI.utils.skipHello();
@@ -1049,7 +1051,7 @@ app.ticker.add((delta) => {
             y: parseInt(car.y),
             rot: car.rotation,
             boost: isBoostEnabled && isPressingEnter,
-            acc: (focused)? car.acc: 0
+            acc: car.acc
         }
         socket.emit("myCar", myData);
 
