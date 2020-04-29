@@ -30,14 +30,7 @@ const fpsStyle = new PIXI.TextStyle({
     fill: ['#000000']
 });
 
-let focused = true;
-
-window.onfocus = function() {
-    focused = true;
-};
 window.onblur = function() {
-    console.log("blurred");
-    focused = false;
     if (inGame){
 
         socket.emit("focusout");
@@ -57,13 +50,12 @@ window.onblur = function() {
 PIXI.utils.skipHello();
 
 
-
 let isCameraShaking = false;
 let shakeCamTime = 0;
 const maxShakeCamTime = 200;
 let shakeCamIntensity;
 let killShakeIntensity = 300;
-let boostShakeIntensity = 20;
+let boostShakeIntensity = 50;
 const MAX_BOOSTBAR_WIDTH = 100;
 
 
@@ -84,7 +76,8 @@ var app = new PIXI.Application(
     resolution: window.devicePixelRatio || 1,
     antialias: true
 });
-
+app.renderer.view.style.width = 100 + "%";
+app.renderer.view.style.height = 100+ "%";
 document.body.appendChild(app.view);
 
 
@@ -175,10 +168,9 @@ let isGoingForward = false;
 let isGoingBackward = false;
 let isPressingEnter = false;
 
-const loader = PIXI.Loader.shared;
 const textures = {};
-
-loader
+const sounds = {};
+PIXI.Loader.shared
     .add("car", "static/images/vehicles/basic.png")
     .add("bumper", 'static/images/bumpers/basic.png')
     .add("lights", 'static/images/lights/basic.png')
@@ -189,6 +181,9 @@ loader
     .add("minimap", 'static/images/gui/minimap.png')
     .add("whitePixel", 'static/images/gui/white_pixel.png')
     .add("killCountEmoji", 'static/images/gui/kill_count_emoji.png')
+    .add("foodSound", 'static/sounds/blop.mp3')
+    .add("crashSound", 'static/sounds/crash.mp3')
+    .add("boostSound", 'static/sounds/boost.mp3')
 ;
 
 let scoreboard;
@@ -196,12 +191,12 @@ let playerPoint;
 let bestPlayerPoint; 
 let boostCharge;
 
-loader.onProgress.add((e) => {
-    //console.log(e.progress + " - " + new Date().getMilliseconds());
+PIXI.Loader.shared.onProgress.add((e) => {
+    console.log(e.progress + " - " + new Date().getMilliseconds());
 });
-loader.load( (loader, resources) =>
+let loaded = false;
+PIXI.Loader.shared.load( (loader, resources) =>
 {
-    console.log("loaded");
     textures.car = resources.car.texture;
     textures.bumper = resources.bumper.texture;
     textures.lights = resources.lights.texture;
@@ -262,6 +257,17 @@ loader.load( (loader, resources) =>
     boostCharge.alpha = 0.5;
     boostContainer.addChild(boostCharge);
 
+
+    //
+    ///
+    //// SOUNDS
+    ///
+    //
+    PIXI.sound.add('food', resources.foodSound);
+    resources.crashSound.volume = 0.07;
+    PIXI.sound.add('crash', resources.crashSound);
+    
+    sounds.boost = resources.boostSound;
 
 
     
@@ -417,6 +423,9 @@ loader.load( (loader, resources) =>
 
                 vanishingFood.push(food[foodId]);
 
+
+                PIXI.sound.play("food");
+            
                 //console.log("Ham");
                 socket.emit("eat", foodId);
             }
@@ -470,7 +479,6 @@ loader.load( (loader, resources) =>
 
 
     });
-
 
     
     socket.on('heartBeat', (data)=> 
@@ -565,8 +573,11 @@ loader.load( (loader, resources) =>
             }
         }
     });
-
+    loaded = true;
 });
+
+
+
 function calcScreenSize(){
 
 }
@@ -609,6 +620,13 @@ function constrain(val, min, max){
     }
 }
 
+//
+///
+//////
+///////// START CAR
+//////
+///
+//
 
 class Car
 {
@@ -748,6 +766,8 @@ class Car
         this.turbo = new Turbo(container, color);
         this.boostIsOn = false;
         this.particles = particles;
+
+        this.turboSound = null;
     }
     get width(){
         return this.carSprite.width;
@@ -874,10 +894,25 @@ class Car
     boostOn(){
         this.boostIsOn = true;
         this.accSpeed = Car.BOOST_SPEED;
+
+        if (this.turboSound != null && this.turboSound.volume == 0){
+            this.turboSound.stop();
+            this.turboSound = null;
+        }
+        if (this.turboSound == null){
+            this.turboSound = PIXI.sound.Sound.from(sounds.boost);
+            this.turboSound.play();
+        }
+
     }
     boostOff(){
         this.boostIsOn = false;
         this.accSpeed = Car.NORMAL_SPEED;
+
+        if (this.turboSound != null)
+        {
+            this.turboSound.volume = 0.0;
+        }
     }
     doesKill(otherCar){
         const myVertices = Car.getVertices(this.bumperSprite);
@@ -938,6 +973,13 @@ class Car
     }
 }
 
+//
+///
+//////
+///////// START TURBO
+//////
+///
+//
 
 class Turbo{
     static PARTICLES_PER_TICK = 15;
@@ -1186,6 +1228,7 @@ class Food{
     }
 }
 
+
 function moveCamera(){
     container.pivot.x = lerp(container.pivot.x, car.x, 0.2);
     container.pivot.y = lerp(container.pivot.y, car.y, 0.2);
@@ -1213,7 +1256,6 @@ function shakeCam(intensity, force = false){
 function stopCameraShake(){
     isCameraShaking = false;
     shakeCamTime = 0 ;
-    console.log("stop");
 }
 
 
@@ -1232,7 +1274,8 @@ socket.on("join", initData =>{
 
 
 
-    mouseControls = mouseCheckbox.checked;    
+    mouseControls = mouseCheckbox.checked;  
+
     mouseAngle = startRot;
     playerPoint.tint = initData.color;
 
@@ -1251,12 +1294,16 @@ socket.on("join", initData =>{
 });
 
 
+// Kill response from server
+socket.on("u killed", iKilled);
 function iKilled(data)
 {
-     console.log("kill auth");
-     killCountText.text = ++killCount;
-     shakeCam(killShakeIntensity, true);
-     displayVictimText(data['dead']);
+    killCountText.text = ++killCount;
+
+    PIXI.sound.play("crash");
+
+    shakeCam(killShakeIntensity, true);
+    displayVictimText(data['dead']);
 }
 function displayVictimText(name){
     victimText.alpha = 1;
@@ -1276,13 +1323,14 @@ function displayVictimText(name){
     }, 30)
 }
 
-socket.on("u killed", iKilled);
 
 socket.on("dead", (data)=>{
 
     inGame = false;
     console.log("you died");
     shakeCam(killShakeIntensity, true);
+
+    PIXI.sound.play("crash");
 
     deathText.text =  "You were killed by " + data.killer;
     
@@ -1312,7 +1360,7 @@ socket.on("dead", (data)=>{
         i++;
     },30)
 });
-app.stage.interactive = true;
+
 app.stage.on("pointermove", (e)=>
 {
 
@@ -1327,8 +1375,8 @@ app.stage.on("pointermove", (e)=>
         mouseAngle = Math.atan2(b, a);
         mouseAngle =  (mouseAngle + Math.PI * 2.5) % (Math.PI * 2) // Offset
 
-        if (inGame)
-        {
+        if(inGame){
+            // cis the distance from mouse to center  of my car
             const c = Math.sqrt(a * a + b * b);
             if (c < 40){
                 car.acc = 0;    
@@ -1337,21 +1385,32 @@ app.stage.on("pointermove", (e)=>
                 car.acc = 1;
             }
         }
+            
     }
 });
+app.stage.interactive = true;
 app.view.addEventListener("pointerdown", ()=>
 {
-    isPressingEnter = true;
-    shakeCam(boostShakeIntensity);
+    if (mouseControls)
+    {
+        isPressingEnter = true;
+        if (inGame){
+            shakeCam(boostShakeIntensity);
+        }
+    }
+
 });
 app.view.addEventListener("pointerup", ()=>
 {
-    isPressingEnter = false;
-    isBoostEnabled = true;
-    if (inGame)
+    if (mouseControls)
     {
-        car.boostOff();
-        stopCameraShake();
+        isPressingEnter = false;
+        if (inGame)
+        {
+            isBoostEnabled = true;
+            car.boostOff();
+            stopCameraShake();
+        }
     }
 });
 app.view.addEventListener("mouseout", ()=>
@@ -1430,9 +1489,9 @@ document.onkeyup = e =>
             
         case 32: // Space
             isPressingEnter = false;
-            isBoostEnabled = true;
             if (inGame)
             {
+                isBoostEnabled = true;
                 car.boostOff();
             }
             break;
@@ -1442,18 +1501,8 @@ document.onkeyup = e =>
 
 
 
-let w = window.innerWidth;
-var h = window.innerHeight;
 // Resize function window
 window.addEventListener('resize', resize);
-
-var maxWidth = 1920;
-let normalRatio = 16/9;
-var windowRatio = window.innerWidth / window.innerHeight;
-let screenDifferenceRatio = windowRatio / normalRatio;
-
-app.renderer.view.style.width = 100 + "%";
-app.renderer.view.style.height = 100+ "%";
 function resize() 
 {
     const myScreenRatio = window.innerWidth / window.innerHeight;
@@ -1495,7 +1544,7 @@ function resize()
     deathText.y = appHeight / 2 + 150;
 
 
-    console.log(`appWidth: ${appWidth}`);
+    //console.log(`appWidth: ${appWidth}`);
     app.renderer.resize(appWidth, appHeight);
 
 }
@@ -1505,8 +1554,11 @@ resize();
 
 $(document).ready(()=>{
     $("#nameButton").click(()=>{
-        $name = $("#name-input").val();
-        socket.emit("join", {name: $name});
+        if (loaded)
+        {
+            $name = $("#name-input").val();
+            socket.emit("join", {name: $name});
+        }
     });
     $('#name-input').keypress( (e) => {
         if (e.which == 13) {

@@ -205,6 +205,9 @@ def on_join(data):
 
     car['color'] = random_color()
     car['score'] = 0
+    
+    car['rot'] = random.random() * (math.pi * 2)
+
     car['acc'] = 0
     car['turn'] = 0
 

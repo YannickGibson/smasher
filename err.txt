@@ -4,10 +4,13 @@ MAYA
 ohinek
 
 anička
-speed boost
+√ speed boost
 zpomaleni rotace u velkych aut
 
 yannick
-kill camera when he kills him self # lol wtf
-kill counter
-bumper eats food too
+√ kill camera when he kills him self # lol wtf # (screen shake brother)
+√ kill counter
+√ bumper eats food too
+√ not drawing the car bug when u spawn next to it
+fix camera shake boost/kill
+add food pop sounds
