@@ -345,6 +345,7 @@ PIXI.Loader.shared.load( (loader, resources) =>
 
         if (isPressingEnter && isBoostEnabled)
         {
+            car.boostOn();
             boostChargePercentage -= 0.02 * delta;
             if (boostChargePercentage <= 0 )
             {
@@ -854,7 +855,6 @@ class Car
                 this.turboSound = null;
             }
             else{
-                console.log( 1 - (this.turboSound.volume - 0.001));
                 this.turboSound.volume -= 1 / this.turboSound.volume * 0.1;
             }
         }
@@ -1167,6 +1167,7 @@ class Scoreboard
         // Limit to 5
         sortedScore = sortedScore.splice(0, 5);
 
+        
         for (const placement in sortedScore)
         {
             const id = sortedScore[placement][0];
@@ -1465,8 +1466,8 @@ document.onkeydown = e =>
 
         case 32: // Space
             isPressingEnter = true;
-            if (isInGame){
-                car.boostOn();
+            if (inGame){
+                shakeCam(boostShakeIntensity);
             }
             break;
 
@@ -1509,6 +1510,7 @@ document.onkeyup = e =>
             if (inGame)
             {
                 isBoostEnabled = true;
+                stopCameraShake();
                 car.boostOff();
             }
             break;
