@@ -181,9 +181,6 @@ PIXI.Loader.shared
     .add("minimap", 'static/images/gui/minimap.png')
     .add("whitePixel", 'static/images/gui/white_pixel.png')
     .add("killCountEmoji", 'static/images/gui/kill_count_emoji.png')
-    .add("foodSound", 'static/sounds/blop.mp3')
-    .add("crashSound", 'static/sounds/crash.mp3')
-    .add("boostSound", 'static/sounds/boost.mp3')
 ;
 
 let scoreboard;
@@ -191,8 +188,32 @@ let playerPoint;
 let bestPlayerPoint; 
 let boostCharge;
 
+
+
+//
+///
+//// SOUNDS
+///
+//
+
+var boostSound = new Howl({
+    src: ['static/sounds/boost.mp3']
+});
+
+var foodSound = new Howl({
+    src: ['static/sounds/blop.mp3']
+});
+
+var crashSound = new Howl({
+    src: ['static/sounds/crash.mp3'],
+    volume: 0.07
+});
+  
+
+
+
 PIXI.Loader.shared.onProgress.add((e) => {
-    console.log(e.progress + " - " + new Date().getMilliseconds());
+    //console.log(e.progress + " - " + new Date().getMilliseconds());
 });
 let loaded = false;
 PIXI.Loader.shared.load( (loader, resources) =>
@@ -258,16 +279,6 @@ PIXI.Loader.shared.load( (loader, resources) =>
     boostContainer.addChild(boostCharge);
 
 
-    //
-    ///
-    //// SOUNDS
-    ///
-    //
-    PIXI.sound.add('food', resources.foodSound);
-    resources.crashSound.volume = 0.07;
-    PIXI.sound.add('crash', resources.crashSound);
-    
-    sounds.boost = resources.boostSound;
 
 
     
@@ -345,7 +356,6 @@ PIXI.Loader.shared.load( (loader, resources) =>
 
         if (isPressingEnter && isBoostEnabled)
         {
-            car.boostOn();
             boostChargePercentage -= 0.02 * delta;
             if (boostChargePercentage <= 0 )
             {
@@ -369,16 +379,31 @@ PIXI.Loader.shared.load( (loader, resources) =>
         car.updateTurboEmit(delta);
 
         
-        // GUI
-        playerPoint.x = car.x / Car.MAP_SIDE * 56;
-        playerPoint.y = car.y / Car.MAP_SIDE * 56;
 
-        bestPlayerPoint.x = lerp(bestPlayerPoint.x, bestPlayerPos[0] / Car.MAP_SIDE * 56, 0.2);
-        bestPlayerPoint.y = lerp(bestPlayerPoint.y, bestPlayerPos[1] / Car.MAP_SIDE * 56, 0.2);
-        //car.score/2000
-        container.scale.set(1- constrain(car.score/4000 ,0 , 0.5) );
         //Score Board
         scoreboard.updateBoard(scoreboardInfo, car, socket.id);
+        
+
+        // GUI
+        if (scoreboard.myPosIndex == 0){
+            let pX = lerp(playerPoint.x, car.x / Car.MAP_SIDE * 56, 0.2);
+            let pY = lerp(playerPoint.y, car.y / Car.MAP_SIDE * 56,0.2)
+            playerPoint.x = pX;
+            playerPoint.y = pY;
+
+            bestPlayerPoint.x = pX;
+            bestPlayerPoint.y = pY;
+        }
+        else{
+            playerPoint.x = car.x / Car.MAP_SIDE * 56;
+            playerPoint.y = car.y / Car.MAP_SIDE * 56;
+
+            bestPlayerPoint.x = lerp(bestPlayerPoint.x, bestPlayerPos[0] / Car.MAP_SIDE * 56, 0.2);
+            bestPlayerPoint.y = lerp(bestPlayerPoint.y, bestPlayerPos[1] / Car.MAP_SIDE * 56, 0.2);
+        }
+
+        //car.score/2000
+        container.scale.set(1- constrain(car.score/4000 ,0 , 0.5) );
         
 
 
@@ -422,7 +447,7 @@ PIXI.Loader.shared.load( (loader, resources) =>
                 vanishingFood.push(food[foodId]);
 
 
-                PIXI.sound.play("food");
+                foodSound.play();
             
                 //console.log("Ham");
                 socket.emit("eat", foodId);
@@ -515,11 +540,11 @@ PIXI.Loader.shared.load( (loader, resources) =>
             locCar.acc = receiveCarData['acc'];
             locCar.turn = receiveCarData['turn'];
 
-            if (receiveCarData['boost'])
+            if (receiveCarData['boost'] && locCar.isBoostOn == false)
             {
                 locCar.boostOn();
             } 
-            else
+            else if (locCar.isBoostOn)
             {
                 locCar.boostOff();
             } 
@@ -763,11 +788,10 @@ class Car
         
 
         this.turbo = new Turbo(container, color);
-        this.boostIsOn = false;
+        this.isBoostOn = false;
         this.particles = particles;
 
-        this.turboSound = null;
-        this.stopTurboSound = false;
+        this.turboSoundId = null;
     }
     get width(){
         return this.carSprite.width;
@@ -821,7 +845,7 @@ class Car
     move(delta)
     {
         // Force movement forwards when boosting
-        if (this.boostIsOn){
+        if (this.isBoostOn){
             this.acc = 1;
         }
 
@@ -861,7 +885,7 @@ class Car
     }
     updateTurboEmit(delta){
         // Turbo
-        if(this.boostIsOn){
+        if(this.isBoostOn){
             const newParticles = this.turbo.emit(delta, this.x, this.y, this.rotation, this.carSprite.width, this.carSprite.height);
             for (let i in newParticles) {
                 this.particles.push(newParticles[i]);
@@ -908,24 +932,18 @@ class Car
         }
     }
     boostOn(){
-        this.boostIsOn = true;
+        this.isBoostOn = true;
         this.accSpeed = Car.BOOST_SPEED;
-
-        if (this.turboSound == null){
-            console.log("play")
-            this.turboSound = PIXI.sound.Sound.from(sounds.boost);
-            this.turboSound.play();
-        }
+        this.turboSoundId = boostSound.play();
+        console.log("boostOn");
 
     }
     boostOff(){
-        this.boostIsOn = false;
+        this.isBoostOn = false;
         this.accSpeed = Car.NORMAL_SPEED;
 
-        if (this.turboSound != null)
-        {
-            this.stopTurboSound = true;
-        }
+        boostSound.fade(1, 0, 200, this.turboSoundId); // fade from 1 volume to 0 volume in 200ms
+        console.log("boostOff");
     }
     doesKill(otherCar){
         const myVertices = Car.getVertices(this.bumperSprite);
@@ -1128,6 +1146,7 @@ class Scoreboard
         this.scores = {};
         this.nameFields = {}
         this.scoreFields = {}
+        this.myPosIndex = null;
     }
     updateBoard(id_nameAndScore, myCar, myId)
     {
@@ -1168,9 +1187,12 @@ class Scoreboard
         sortedScore = sortedScore.splice(0, 5);
 
         
-        for (const placement in sortedScore)
+        for (const placementIndex in sortedScore)
         {
-            const id = sortedScore[placement][0];
+            const id = sortedScore[placementIndex][0];
+            if (id == myId){
+                this.myPosIndex = placementIndex;
+            }
             if ( !this.nameFields.hasOwnProperty(id) )
             {// Instantiate PIXI.Text objects
 
@@ -1194,10 +1216,10 @@ class Scoreboard
                 }
             }
             else{
-                this.nameFields[id].text =   (1 + parseInt(placement)) + ". " + this.names[id];
+                this.nameFields[id].text =   (1 + parseInt(placementIndex)) + ". " + this.names[id];
                 this.scoreFields[id].text =  this.scores[id];
             }
-            const destPos = Scoreboard.SCORE_TOP_PADDING + placement * Scoreboard.TEXT_SPACING;
+            const destPos = Scoreboard.SCORE_TOP_PADDING + placementIndex * Scoreboard.TEXT_SPACING;
             const oldPos = this.nameFields[id].y;
             const newPos = lerp(oldPos, destPos, 0.2);
             this.nameFields[id].y = newPos
@@ -1264,12 +1286,13 @@ function shakeCam(intensity, force = false){
     if (isCameraShaking && force == false){
         return;
     }
+    print
     shakeCamIntensity = intensity;
+    shakeCamTime = 0 ;
     isCameraShaking = true;
 }
 function stopCameraShake(){
     isCameraShaking = false;
-    shakeCamTime = 0 ;
 }
 
 
@@ -1314,7 +1337,7 @@ function iKilled(data)
 {
     killCountText.text = ++killCount;
 
-    PIXI.sound.play("crash");
+    crashSound.play();
 
     shakeCam(killShakeIntensity, true);
     displayVictimText(data['dead']);
@@ -1344,7 +1367,7 @@ socket.on("dead", (data)=>{
     console.log("you died");
     shakeCam(killShakeIntensity, true);
 
-    PIXI.sound.play("crash");
+    crashSound.play();
 
     deathText.text =  "You were killed by " + data.killer;
     
@@ -1407,11 +1430,11 @@ app.view.addEventListener("pointerdown", ()=>
 {
     if (mouseControls)
     {
-        isPressingEnter = true;
-        if (inGame){
+        if (inGame && isPressingEnter == false){
             car.boostOn();
             shakeCam(boostShakeIntensity);
         }
+        isPressingEnter = true;
     }
 
 });
@@ -1419,13 +1442,15 @@ app.view.addEventListener("pointerup", ()=>
 {
     if (mouseControls)
     {
+        isBoostEnabled = true;
         isPressingEnter = false;
-        if (inGame)
+
+        if (inGame && car.isBoostOn)
         {
-            isBoostEnabled = true;
             car.boostOff();
             stopCameraShake();
         }
+
     }
 });
 app.view.addEventListener("mouseout", ()=>
@@ -1465,10 +1490,11 @@ document.onkeydown = e =>
             break;
 
         case 32: // Space
-            isPressingEnter = true;
-            if (inGame){
+            if (inGame && isPressingEnter == false){
+                car.boostOn();
                 shakeCam(boostShakeIntensity);
             }
+            isPressingEnter = true;
             break;
 
         // Testing
@@ -1507,9 +1533,9 @@ document.onkeyup = e =>
             
         case 32: // Space
             isPressingEnter = false;
-            if (inGame)
+            isBoostEnabled = true;
+            if (inGame && car.isBoostOn)
             {
-                isBoostEnabled = true;
                 stopCameraShake();
                 car.boostOff();
             }

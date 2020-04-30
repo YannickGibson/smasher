@@ -33,6 +33,15 @@ def random_color():
 def random_food():
     return {"x":random.randint(-MAP_SIDE, MAP_SIDE), "y":random.randint(-MAP_SIDE, MAP_SIDE), "color": random_color()}
 
+def constrain(val, _min, _max):
+    if val < _min:
+        return _min
+    elif val > _max:
+        return _max
+    else:
+        return val
+
+
 
 food = {random_food_id(): random_food() for _ in range(100)}
 
@@ -67,7 +76,7 @@ def heart_beat():
             personalInfo = {}
             bestScore = -1;
             if currCar['active'] == True:
-                carScale = 1 - (currCar['score'] / 4000) 
+                carScale = constrain(1 - (currCar['score'] / 4000),0 , 1) 
                 mapMult = 1 / carScale
                 view_x = VIEW_DISTANCE_X * mapMult
                 view_y = VIEW_DISTANCE_Y * mapMult
