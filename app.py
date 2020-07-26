@@ -207,8 +207,8 @@ def on_join(data):
     car['x'] = (-MAP_SIDE + (MAP_SIDE*2) * random.random())/2
     car['y'] = (-MAP_SIDE + (MAP_SIDE*2) * random.random())/2
 
-    if data['name'] == "":
-        car['name'] = "Glidester"
+    if data['name'] == "": # If name is not defined
+        car['name'] = "Smasher.ml"
     else:
         car['name'] = data['name']
 

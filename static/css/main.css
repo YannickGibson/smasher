@@ -21,32 +21,48 @@ body{
     display:flex;
     align-items: center;
     justify-content: center;
+    flex-direction: column;
+}
+.imgLogo{
+    transform: scale(0.5);
 }
 
 .menuDiv{
     width: 600px;
-    height: 550px;
-    background-color: #afafafb0;
-    border-radius: 10px;
-    border: 5px #e7e7e7b0 solid;
+    height: 500px;
+
+    
+    display:flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
 }
 
-._adDiv{
-    background-color:white !important;
-    width:600px !important;
-    height:250px !important;
-    display: block !important;
-    border-bottom-left-radius: 5px;
-    border-bottom-right-radius: 5px;
-}
 
 .inputDiv{
     width:600px;
-    height:300px;
+    height:250px;
     display:flex;
     align-items:center;
     justify-content: center;
     flex-direction: column;
+    background-color: #afafafb0;
+    border-top: 5px #e7e7e7b0 solid;
+    border-left: 5px #e7e7e7b0 solid;
+    border-right: 5px #e7e7e7b0 solid;
+    border-bottom: 5px #e7e7e7b0 solid;
+    border-radius: 10px;
+}
+
+._adDiv{
+    width:300px ;
+    height:250px !important;
+    background-color: #afafafb0;
+    border-left: 5px #e7e7e7b0 solid;
+    border-bottom: 5px #e7e7e7b0 solid;
+    border-right: 5px #e7e7e7b0 solid;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
 }
 
 #name-input{
@@ -85,6 +101,13 @@ body{
 
 /* Mouse Option */
 .mouseOptionDiv{
+
+    /* */
+    /* HIDING THE GODAMN THING*/
+    visibility: hidden;
+    /* */
+    /* */
+
     position: fixed;
     right: 0px;
     top: 0px;
