@@ -20,7 +20,7 @@ mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('text/javascript', '.js')
 
 
-from car import SimpleBotCar, PlayerCar, MAP_SIDE, constrain, random_color, random_food
+from car import BotCar, PlayerCar, MAP_SIDE, constrain, random_color, random_food
 
 import string
 CHARACTERS = string.ascii_lowercase + string.digits
@@ -41,12 +41,11 @@ food = {random_food_id(): random_food() for _ in range(100)}
 VIEW_DISTANCE_X =  950 # * 4
 VIEW_DISTANCE_Y =  530 # * 4
 
-COLLISION_DETECTION_DISTANCE = 500 # Tail can get pretty long xd
 
 cars = {}
 bots = {}
 def spawn_bot():
-    bots[random_food_id()] = SimpleBotCar(
+    bots[random_food_id()] = BotCar(
                                 x = random.randint(-MAP_SIDE/2, MAP_SIDE/2),
                                 y = random.randint(-MAP_SIDE/2, MAP_SIDE/2),
                                 angle = random.randint(0, 359),
@@ -56,11 +55,12 @@ def spawn_bot():
     )
 
 for i in range(1):
-    bots[str(i)] = SimpleBotCar(x=0, y=0, angle=math.radians(0), color="0x000000", name="Bot Jerry", score=6009)
+    bots[str(i)] = BotCar(x=0, y=0, angle=0, color="0x000000", name="Bot Jerry", score=69)
 
 def heart_beat():
     while True:
         socketio.sleep(HEART_BEAT_INTERVAL)
+
 
         # Anti hack shit:
         # (keys, items)
@@ -74,87 +74,78 @@ def heart_beat():
 
 
         # Gathering Best Position and scoreboard
-        best_score = -1;
-        best_player_pos = None
-        scoreboard_info = []
+        bestScore = -1;
+        bestPlayerPos = None
+        scoreboardInfo = []
         scoreboard_top_scores = [ ("Name", -1) ] # "-1" - Sample score so there is a lowest minimum. If there is more than 6 players "-1" will be thrown out of the array 
         cars_and_bots = [cars, bots]
         for i in range(2):
             for c_or_b_id, car_or_bot in cars_and_bots[i].items():
                 if car_or_bot.active == True:
                     hb_info = car_or_bot.heartbeat_info # Heartbeat Info
-                    scoreboard_info.append( [c_or_b_id, hb_info['name'], hb_info['score'] ] )
+                    scoreboardInfo.append( [c_or_b_id, hb_info['name'], hb_info['score'] ] )
 
-                    if best_score < hb_info['score']:
-                        best_score = hb_info['score']
-                        best_player_pos = [hb_info['x'], hb_info['y']]
+                    if bestScore < hb_info['score']:
+                        bestScore = hb_info['score']
+                        bestPlayerPos = [hb_info['x'], hb_info['y']]
 
         # THIS COULD PROBABLY BE MORE EFFICIENT!
-        scoreboard_info = sorted(scoreboard_info, key=lambda x: x[2], reverse=True) # Get the second value which is SCORE
-        scoreboard_info = scoreboard_info[:7] # Limit scoreboard to 7 nicks (before converting to dict)
-        scoreboard_info = { li[0]: li[1:] for li in scoreboard_info } # Converting to dict because that's how it is on client side
+        scoreboardInfo = sorted(scoreboardInfo, key=lambda x: x[2], reverse=True) # Get the second value which is SCORE
+        scoreboardInfo = scoreboardInfo[:7] # Limit scoreboard to 7 nicks (before converting to dict)
+        scoreboardInfo = { li[0]: li[1:] for li in scoreboardInfo } # Converting to dict because that's how it is on client side
 
         for send_to_car_id, send_to_car in cars.items(): # Send Individual Information To THIS (send_to_car_id) Car
 
             # Setup
-            send_to_car_info = send_to_car.heartbeat_info # This literraly takes no memory because it's is linking the adress ID in memory!! ... For readability reasons
+            currCarInfo = send_to_car.heartbeat_info # This literraly takes no memory because it's is linking the adress ID in memory!! ... For readability reasons
             cars_to_display = {}
-            personal_info = {}
+            personalInfo = {}
             view_x = None
             view_y = None
             if send_to_car.active == True: # If in game
-                carScale = constrain(1 - (send_to_car_info['score'] / 4000),0 , 1) 
+                carScale = constrain(1 - (currCarInfo['score'] / 4000),0 , 1) 
                 mapMult = 1 / carScale
                 view_x = VIEW_DISTANCE_X * mapMult
                 view_y = VIEW_DISTANCE_Y * mapMult
-                personal_info = {"score" : send_to_car_info['score'], "scoreboard": scoreboard_info, "bestPlayerPos": best_player_pos}
+                personalInfo = {"score" : currCarInfo['score'], "scoreboard": scoreboardInfo, "bestPlayerPos": bestPlayerPos}
             else:
                 view_x = VIEW_DISTANCE_X*2
                 view_y = VIEW_DISTANCE_Y*2
 
 
             # Bots
-            for display_bot_id, bot in dict(bots).items(): # making copy so it don fak up when we modify bots list
+            for display_bot_id, theBot in dict(bots).items(): # making copy so it don fak up when we modify bots list
 
-                bot_info = bot.heartbeat_info
-                
-                # Player x Bot collision
-                if send_to_car_info['x'] - view_x < bot_info['x'] and send_to_car_info['x'] + view_x > bot_info['x'] and \
-                   send_to_car_info['y'] - view_y < bot_info['y'] and send_to_car_info['y'] + view_y > bot_info['y']:
-                    cars_to_display[display_bot_id] = bot_info
-                if abs(send_to_car_info['x'] - bot_info['x']) < COLLISION_DETECTION_DISTANCE and \
-                   abs(send_to_car_info['y'] - bot_info['y']) < COLLISION_DETECTION_DISTANCE:
+                theBotInfo = theBot.heartbeat_info
+                # Bots Collision   
+                for collide_car_id, collide_car in cars.items():
+                    if collide_car.active == True:
 
-                    send_to_car.heartbeat_info['color'] = random_color()
-                    # We gon check collisions only if they be close
-                    if send_to_car.active: # Must be active for us to compare collision points
-
-                        bot.add_close_car(send_to_car_id ,send_to_car) # Add to list of close cars
-
-                        # Bots Collision   
-                        if bot.does_kill(send_to_car):
+                        if theBot.does_kill(collide_car):
                             # Kill the player car
-                            send_to_car.active = False
+                            collide_car.active = False
 
                             # Add score to killer bot
-                            bot.add_score_for_killing(send_to_car)
+                            theBot.add_score_for_killing(collide_car)
 
-                            socketio.emit('dead', {"killer": bot_info["name"]}, room=send_to_car_id)
+                            socketio.emit('dead', {"killer": theBotInfo["name"]}, room=collide_car_id)
 
-                        elif send_to_car.does_kill(bot):
-                            # Add score to killer player
-                            send_to_car.add_score_for_killing(bot)
-
-
-                            # Confirm the kill to killer player
-                            socketio.emit("u killed", {"dead": bot_info["name"]}, room=send_to_car_id)
-
+                        elif collide_car.does_kill(theBot):
                             # Kill the bot
                             del bots[display_bot_id]
+
+                             # Add score to killer player
+                            collide_car.add_score_for_killing(theBot)
+
+                            # Confirm the kill to killer player
+                            socketio.emit("u killed", {"dead": theBotInfo["name"]}, room=collide_car_id)
 
                             # Spawn bot
                             spawn_bot()
 
+                if currCarInfo['x'] - view_x < theBotInfo['x'] and currCarInfo['x'] + view_x > theBotInfo['x'] and \
+                   currCarInfo['y'] - view_y < theBotInfo['y'] and currCarInfo['y'] + view_y > theBotInfo['y']:
+                    cars_to_display[display_bot_id] = theBotInfo
             ###
 
            
@@ -167,63 +158,33 @@ def heart_beat():
                 
                 c = display_car.heartbeat_info
 
+
                 # Next car if this is 'send_to_car' 
                 if send_to_car_id == display_car_id:
                     continue
 
 
                 # Decide if to display car based on view distance
-                if send_to_car_info['x'] - view_x < c['x'] and send_to_car_info['x'] + view_x > c['x'] and \
-                   send_to_car_info['y'] - view_y < c['y'] and send_to_car_info['y'] + view_y > c['y']:
+                if currCarInfo['x'] - view_x < c['x'] and currCarInfo['x'] + view_x > c['x'] and \
+                   currCarInfo['y'] - view_y < c['y'] and currCarInfo['y'] + view_y > c['y']:
                    cars_to_display[display_car_id] = c
             ###
 
+            """  shortScoreBoard = None
+            for id in personalInfo["scoreBoard"] =  """
 
             # Food
             food_to_display = {}
             for food_id in food:
                 f = food[food_id]
                 # Decide if to display food based on view distance
-                if send_to_car_info['x'] - view_x < f['x'] and send_to_car_info['x'] + view_x > f['x'] and \
-                   send_to_car_info['y'] - view_y < f['y'] and send_to_car_info['y'] + view_y > f['y']:
+                if currCarInfo['x'] - view_x < f['x'] and currCarInfo['x'] + view_x > f['x'] and \
+                   currCarInfo['y'] - view_y < f['y'] and currCarInfo['y'] + view_y > f['y']:
                    food_to_display[food_id] = f
             #
 
-            data ={ "cars": cars_to_display, "food": food_to_display, "info": personal_info}
+            data ={ "cars": cars_to_display, "food": food_to_display, "info": personalInfo}
             socketio.emit("heartBeat", data, room=send_to_car_id)
-
-        # Bot x Bot collision
-        for bot_id, bot in list(bots.items()): # Iterating a copy
-            #SETUP
-            bot_info = bot.heartbeat_info
-            bot_car_scale = constrain(1 - (bot_info['score'] / 4000),0.01 , 1) 
-            map_mult = 1 / bot_car_scale
-            view_x = VIEW_DISTANCE_X * map_mult
-            view_y = VIEW_DISTANCE_Y * map_mult
-
-            for collide_bot_id, collide_bot in bots.items():
-                if bot_id == collide_bot_id:
-                    continue
-
-                collide_bot_info = collide_bot.heartbeat_info
-                
-                if collide_bot_info['x'] - view_x < bot_info['x'] and collide_bot_info['x'] + view_x > bot_info['x'] and \
-                    collide_bot_info['y'] - view_y < bot_info['y'] and collide_bot_info['y'] + view_y > bot_info['y']:
-
-                    bot.add_close_car(collide_bot_id, collide_bot)
-
-                    # Bots Collision   # need to check if only one sidedly because it is nested bot loop
-                    if bot.does_kill(collide_bot):
-
-                        # Add score to killer bot
-                        bot.add_score_for_killing(collide_bot)
-                        
-                        # Kill the dead bot
-                        del bots[collide_bot_id]
-
-            bot.think()
-
-                
 
 
 @socketio.on('myCar', namespace="/")

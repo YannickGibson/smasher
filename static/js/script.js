@@ -164,7 +164,7 @@ let mouseInGame = false; // On game start mouse over triggers, and sets this to 
 // Inputs
 let isTurningRight = false;
 let isTurningLeft = false;
-let isGoingForward = false;
+//let isGoingForward = false;
 let isGoingBackward = false;
 let isPressingEnter = false;
 
@@ -317,18 +317,12 @@ PIXI.Loader.shared.load( (loader, resources) =>
         }
         else
         {
-            //Acceleration
-            if (isGoingForward && isGoingBackward){
+            
+            if (isGoingBackward){
                 car.acc = 0;
-            }
-            else if (isGoingForward){
-                car.acc = 1;
-            }
-            else if (isGoingBackward){
-                car.acc = -.7;
             }
             else{
-                car.acc = 0;
+                car.acc = 1;
             }
 
             // Turning 
@@ -428,7 +422,7 @@ PIXI.Loader.shared.load( (loader, resources) =>
                 {
                     car.dead = true;
                     socket.emit("kill", id);
-                }
+                } 
             }
             //first need to set acc, rotate
         }
@@ -935,15 +929,14 @@ class Car
         this.isBoostOn = true;
         this.accSpeed = Car.BOOST_SPEED;
         this.turboSoundId = boostSound.play();
-        console.log("boostOn");
+        //console.log("boostOn");
 
     }
     boostOff(){
         this.isBoostOn = false;
         this.accSpeed = Car.NORMAL_SPEED;
-
         boostSound.fade(1, 0, 200, this.turboSoundId); // fade from 1 volume to 0 volume in 200ms
-        console.log("boostOff");
+        //console.log("boostOff");
     }
     doesKill(otherCar){
         const myVertices = Car.getVertices(this.bumperSprite);
@@ -996,6 +989,7 @@ class Car
 
     wipe()
     {
+        this.boostOff();
         this.container.removeChild(this.carSprite);
         this.container.removeChild(this.bumperSprite);
         this.container.removeChild(this.lightsSprite);
@@ -1118,7 +1112,7 @@ function blendColors(c1, c2, val)
 
 class Scoreboard
 {
-    static TEXT_SPACING = 35;
+    static TEXT_SPACING = 34;
     static SCORE_END_X = 237;
     static NAME_START_X = 15;
     static SCORE_TOP_PADDING = 10;
@@ -1150,9 +1144,10 @@ class Scoreboard
     }
     updateBoard(id_nameAndScore, myCar, myId)
     {
-        // Add my car
+        // 12.8.2020 Changed to limit this on server #1
+        /* // Add my car
         this.names[myId] = myCar.name;
-        this.scores[myId] = myCar.score;
+        this.scores[myId] = myCar.score; */
 
         //Add missingzs players
         for(const id in id_nameAndScore)
@@ -1183,8 +1178,9 @@ class Scoreboard
             return b[1] - a[1];
         });
 
-        // Limit to 5
-        sortedScore = sortedScore.splice(0, 5);
+        // 12.8.2020 Changed to limit this on server #2
+        /* // Limit to 5
+        sortedScore = sortedScore.splice(0, 5); */
 
         
         for (const placementIndex in sortedScore)
@@ -1320,9 +1316,10 @@ socket.on("join", initData =>{
     killCountText.text = "0";
     killCount = 0;
 
+    // Keyboard
     isTurningRight = false;
     isTurningLeft = false;
-    isGoingForward = false;
+    //isGoingForward = false;
     isGoingBackward = false;
 
     console.log("joining...");
@@ -1373,7 +1370,7 @@ socket.on("dead", (data)=>{
     
     // Delete car
     car.wipe();
-    delete car;
+    delete car; // Fixing boost on when dying
 
     let i = 0;
     const t = setInterval(()=>
@@ -1471,7 +1468,7 @@ document.onkeydown = e =>
     { 
         case 38: // UP
         case 87: // W
-            isGoingForward = true;
+            //isGoingForward = true;
             break;
 
         case 40: // DOWN
@@ -1513,7 +1510,7 @@ document.onkeyup = e =>
     {
         case 38: // UP
         case 87: // W
-            isGoingForward = false;
+            //isGoingForward = false;
             break;
 
         case 40: // DOWN
