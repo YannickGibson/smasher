@@ -1,11 +1,11 @@
 {% extends 'base.html' %}
 
-{% block head %}
-<title>Glide</title>
-{% endblock %}
 
 {% block body %}
 <div id='overlay'>
+    <div class="cookiesDiv">
+        <p>We use cookies and other technologies to improve your browsing experience, to show you personalized content and targeted ads, to analyze our site traffic, and to understand from where our visitors are coming from. By browsing our website, you consent use of cookies and other tracking technologies.</p>
+    </div>
     <img class="imgLogo" src="{{ url_for('static', filename='images/gui/smasherml.png') }}"/>
     <div class='menuDiv'>
         <div class='inputDiv'>
@@ -34,6 +34,11 @@
     </div>
 </div>
 
+<p hidden>If you're looking for a good PC game to play, you've come to the right place. There are a lot of video games in this round up that'll entertain you, and they're neatly organized by genre. Steam users (and if you're a PC gamer, how aren't you one?) should visit PCMag's Steam Curator page and Steam Discussion Group, too. Our reviews live there, as well as several themed lists featuring highly regarded titles.</p>
+<footer hidden>
+    This category combines action games, role-playing games, and real-time strategy games. In this subgenre of strategy games, players usually don't build resources such as bases or combat units. Instead, players control a single character in one of two teams, working together to try and destroy the other team’s base (they are often aided in the task by the help of computer-controlled units that attack on a set path).
+    Imagine a game soup flavored with chunky bits of old school 2D Castlevania, Portal, and BioShock, and you still wouldn't get close to describing The Swapper. The game's not quite a platformer; it's a puzzle game, packaged with a brooding sci-fi story set in space. Finnish company Facepalm Games delivers a fascinating, memorable exploration title that can sustain at least two plays through because of multiple endings.
+</footer>
 
 <!--JQuery-->
 <script type="text/javascript" src="{{ url_for('static', filename='js/libraries/jquery.js') }}"></script>
