@@ -12,5 +12,5 @@ yannick
 √ kill counter
 √ bumper eats food too
 √ not drawing the car bug when u spawn next to it
-fix camera shake boost/kill
-add food pop sounds
+√ fix camera shake boost/kill
+√ add food pop sounds
