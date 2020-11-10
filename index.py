@@ -55,7 +55,8 @@ def spawn_bot():
                                 score = random.randint(333, 333)
     )
 
-for i in range(1):
+# Spawned number of bots depends on the range argument
+for i in range(0):
     bots[str(i)] = SimpleBotCar(x=0, y=0, angle=math.radians(0), color="0x000000", name="Bot Jerry", score=6009)
 
 def heart_beat():
