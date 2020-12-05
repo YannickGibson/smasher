@@ -381,11 +381,11 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                           'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
-@app.route('/.well-known/pki-validation/C6D4CD904C6D1CDC5F56E74847BA8121.txt')
+@app.route('/.well-known/pki-validation/4E97029489E808EA179E63B76AD16B89.txt')
 def ssl_verification_file():
     print("yeps")
     return send_from_directory(os.path.join(app.root_path, 'static'),
-                          '.well-known/pki-validation/C6D4CD904C6D1CDC5F56E74847BA8121.txt', mimetype='txt')
+                          '.well-known/pki-validation/4E97029489E808EA179E63B76AD16B89.txt', mimetype='txt')
 if __name__ == '__main__':
     socketio.run(app, debug=True)
     
