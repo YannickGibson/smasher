@@ -56,8 +56,9 @@ def spawn_bot():
     )
 
 # Spawned number of bots depends on the range argument
-for i in range(0):
-    bots[str(i)] = SimpleBotCar(x=0, y=0, angle=math.radians(0), color="0x000000", name="Bot Jerry", score=6009)
+for i in range(1):
+    spawn_bot()
+    #bots[str(i)] = SimpleBotCar(x=0, y=0, angle=math.radians(0), color="0x000000", name="Bot Jerry", score=600)
 
 def heart_beat():
     while True:
@@ -202,7 +203,7 @@ def heart_beat():
             view_x = VIEW_DISTANCE_X * map_mult
             view_y = VIEW_DISTANCE_Y * map_mult
 
-            for collide_bot_id, collide_bot in bots.items():
+            for collide_bot_id, collide_bot in list(bots.items()):
                 if bot_id == collide_bot_id:
                     continue
 

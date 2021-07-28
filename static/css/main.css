@@ -184,3 +184,30 @@ input:checked + .slider:before {
 .cookiesDiv{
     display: none;
 }
+
+.hideMe{
+    width: 0 !important;
+    height: 0 !important;
+    font-size: 0;
+}
+
+footer{
+    background-color: #afafafb0;
+    width:100%;
+    text-align: center;
+    padding: 5px 0;
+    margin:0;
+
+    position: absolute;
+    bottom: 0;
+}
+footer p{
+    margin:0;
+}
+
+.yannickSpan{
+    color: rgb(114, 236, 89);
+}
+.yearSpan{
+    color: blue
+}

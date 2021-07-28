@@ -193,7 +193,7 @@ class BotCar(BaseCar):
 
     MAX_BUMPER_SCALE = 6
     NORMAL_SPEED = 0.8
-    BOOST_SPEED = 1.8
+    BOOST_SPEED = 2.8
     TURN_SPEED = 0.1
     MAX_BODY_SCALE = 4
 
@@ -266,12 +266,10 @@ class BotCar(BaseCar):
     def boost_on(self):
         self.heartbeat_info['boost'] = True
         self.accSpeed = BotCar.BOOST_SPEED
-        print("boost_on")
 
     def boost_off(self):
         self.heartbeat_info['boost'] = False
         self.accSpeed = BotCar.NORMAL_SPEED
-        print("boost_off")
 
     def does_eat(self, food): # Is food center isnide body/bumper?
         
@@ -311,11 +309,13 @@ class SimpleBotCar(BotCar):
                 closest_car_id__distance = [bot_or_car_id, currDistance]
                 pass
         if len(self.close_cars_and_bots) > 0:
-            self.heartbeat_info['turn'] = 0.1
+            self.heartbeat_info['turn'] = 1
+            self.boost_on();
             #self.heartbeat_info['boost'] = True
         else:
             self.heartbeat_info['turn'] = 0
-            #aself.heartbeat_info['boost'] = False
+            self.boost_off();
+            #self.heartbeat_info['boost'] = False
 
         self.move(delta=0.95) # maybe 1 would be too quick idk
 
