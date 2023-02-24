@@ -1,14 +1,13 @@
 # Smasher #
-Realtime online web game using flask-socketio.
+Realtime online web game using flask-socketio. Let the videos be demonstration for the game.
 
 
 ## Playthrough
-<video src="videos/turbo 2021-04-20 14-05-37.mp4"></video>
+
+https://user-images.githubusercontent.com/57909721/221151633-50c7ab61-dc90-43d9-a49c-930c6a06d44c.mp4
 
 
 ## Multiplayer
-<video src="videos/gameplay 2021-04-20 14-06-37.mp4"></video>
 
-
-#
+https://user-images.githubusercontent.com/57909721/221151800-ab2acbc1-a1d5-4b9e-895f-ad5364333f2f.mp4
 
