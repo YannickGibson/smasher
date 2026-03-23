@@ -1,3 +1,4 @@
-/.vscode/
+.vscode/
 tempCodeRunnerFile.*
 *.map
+__pycache__/
