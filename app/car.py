@@ -1,4 +1,5 @@
-import math 
+import math
+import random
 
 def scalarProduct(vect1, vect2):
     return (vect1[0] * vect2[0]) + (vect1[1] * vect2[1])
@@ -322,7 +323,6 @@ class SimpleBotCar(BotCar):
         self.close_cars_and_bots = {}
 
 
-import random
 
 class PlayerCar(BaseCar):
     def __init__(self): 
@@ -335,8 +335,8 @@ class PlayerCar(BaseCar):
     def spawn(self, name):
         self.active = True # "name" & "active" need to be run only once not always on spawn, well... 
         self.heartbeat_info["name"] = name if name != "" else "Smasher.ml" # If name is not defined
-        self.heartbeat_info['x'] = random.randint(-MAP_SIDE/2, MAP_SIDE/2)
-        self.heartbeat_info['y'] = random.randint(-MAP_SIDE/2, MAP_SIDE/2)
+        self.heartbeat_info['x'] = random.randint(-MAP_SIDE//2, MAP_SIDE//2)
+        self.heartbeat_info['y'] = random.randint(-MAP_SIDE//2, MAP_SIDE//2)
         self.heartbeat_info["score"] = 0
         self.heartbeat_info["rot"] = random.random() * (math.pi * 2)
         self.heartbeat_info["acc"] = 0

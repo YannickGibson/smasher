@@ -2,9 +2,7 @@ from flask import Flask, request, render_template, send_from_directory
 from flask_socketio import SocketIO, emit
 import os
 import threading
-from concurrent.futures import ThreadPoolExecutor
 import random
-import math
 app = Flask(__name__)
 app.config['SECRET_KEY'] = "57dwad86a465d79"
 socketio = SocketIO(app, cors_allowed_origins="*")
@@ -12,15 +10,13 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 thread_lock = threading.Lock()
 heartbeat_thread = None
 
-import datetime
-
 #adding manually mime types
 import mimetypes
 mimetypes.add_type('text/css', '.css')
 mimetypes.add_type('text/javascript', '.js')
 
 
-from car import SimpleBotCar, PlayerCar, MAP_SIDE, constrain, random_color, random_food
+from app.car import SimpleBotCar, PlayerCar, MAP_SIDE, constrain, random_color, random_food
 
 import string
 CHARACTERS = string.ascii_lowercase + string.digits
@@ -47,8 +43,8 @@ cars = {}
 bots = {}
 def spawn_bot():
     bots[random_food_id()] = SimpleBotCar(
-                                x = random.randint(-MAP_SIDE/2, MAP_SIDE/2),
-                                y = random.randint(-MAP_SIDE/2, MAP_SIDE/2),
+                                x = random.randint(-MAP_SIDE//2, MAP_SIDE//2),
+                                y = random.randint(-MAP_SIDE//2, MAP_SIDE//2),
                                 angle = random.randint(0, 359),
                                 color = random_color(),
                                 name = "Bot Jerry",
@@ -331,7 +327,7 @@ def connected():
 
     cars[request.sid] = PlayerCar()
 
-    print("\Gamer connected")
+    print("Gamer connected")
     
 
 @socketio.on('join', namespace="/") # Click The "Start" Button
@@ -364,7 +360,7 @@ def on_blur():
 def disconnected():
     if request.sid in cars:
         del cars[request.sid]
-        print('\Gamer disconnected, Players online: ' + str(len(cars)))
+        print('Gamer disconnected, Players online: ' + str(len(cars)))
 
 
 @app.route('/')
