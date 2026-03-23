@@ -8,3 +8,30 @@ dependencies = [
     "flask>=3.1.3",
     "flask-socketio>=5.6.1",
 ]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.7",
+]
+
+
+[tool.ruff.lint]
+extend-select = [
+  "F",        # Pyflakes rules
+  "W",        # PyCodeStyle warnings
+  "E",        # PyCodeStyle errors
+  "I",        # Sort imports properly
+  "UP",       # Warn if certain things can changed due to newer Python versions
+  "C4",       # Catch incorrect use of comprehensions, dict, list, etc
+  "FA",       # Enforce from __future__ import annotations
+  "ISC",      # Good use of string concatenation
+  "ICN",      # Use common import conventions
+  "RET",      # Good return practices
+  "TID",      # Some good import practices
+  "TC",       # Enforce importing certain types in a TYPE_CHECKING block
+  "TD",       # Be diligent with TODO comments
+  "NPY",      # Some numpy-specific things
+]
+
+[tool.ruff.lint.pylint]
+max-args = 10
