@@ -1,5 +1,5 @@
-import os
 import mimetypes
+import os
 import random
 import string
 import threading
@@ -16,41 +16,39 @@ from app.car import (
     random_food,
 )
 
+# ── Constants ──────────────────────────────────────────────────────────
+
+CHARACTERS = string.ascii_lowercase + string.digits
+HEART_BEAT_INTERVAL = 0.03
+VIEW_DISTANCE_X = 950
+VIEW_DISTANCE_Y = 530
+COLLISION_DETECTION_DISTANCE = 500
+
+# ── App setup ──────────────────────────────────────────────────────────
+
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("text/javascript", ".js")
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = "57dwad86a465d79"
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 thread_lock = threading.Lock()
 heartbeat_thread = None
 
-# adding manually mime types
-mimetypes.add_type("text/css", ".css")
-mimetypes.add_type("text/javascript", ".js")
+# ── Game state ─────────────────────────────────────────────────────────
 
+food = {}
+cars = {}
+bots = {}
 
-CHARACTERS = string.ascii_lowercase + string.digits
+# ── Helper functions ───────────────────────────────────────────────────
 
 
 def random_food_id():
     return "".join(random.choices(CHARACTERS, k=8))
 
 
-HEART_BEAT_INTERVAL = 0.03
-
-
-food = {random_food_id(): random_food() for _ in range(100)}
-
-VIEW_DISTANCE_X = 950  # * 4
-VIEW_DISTANCE_Y = 530  # * 4
-
-COLLISION_DETECTION_DISTANCE = 500  # Tail can get pretty long xd
-
-cars = {}
-bots = {}
-
-
-def spawn_bot() -> None:
+def spawn_bot():
     bots[random_food_id()] = SimpleBotCar(
         x=random.randint(-MAP_SIDE // 2, MAP_SIDE // 2),
         y=random.randint(-MAP_SIDE // 2, MAP_SIDE // 2),
@@ -61,10 +59,7 @@ def spawn_bot() -> None:
     )
 
 
-# Spawned number of bots depends on the range argument
-for _i in range(1):
-    spawn_bot()
-    # bots[str(i)] = SimpleBotCar(x=0, y=0, angle=math.radians(0), color="0x000000", name="Bot Jerry", score=600)
+# ── Game loop ──────────────────────────────────────────────────────────
 
 
 def heart_beat() -> None:
@@ -270,8 +265,11 @@ def heart_beat() -> None:
             bot.think()
 
 
+# ── Socket endpoints ───────────────────────────────────────────────────
+
+
 @socketio.on("myCar", namespace="/")
-def update_my_car(car_data) -> None:
+def update_my_car(car_data):
     if request.sid in cars:
         # check if data fits type
         if (
@@ -431,15 +429,17 @@ def on_blur() -> None:
 
 
 @socketio.on("disconnect", namespace="/")
-def disconnected() -> None:
+def disconnected():
     if request.sid in cars:
         del cars[request.sid]
 
 
+# ── HTTP routes ────────────────────────────────────────────────────────
+
+
 @app.route("/")
 def index():
-    # Get the heartbeat goin'
-    global heartbeat_thread  # Have to get my var (BRUH method)
+    global heartbeat_thread
     if heartbeat_thread is None:
         with thread_lock:
             heartbeat_thread = socketio.start_background_task(heart_beat)
@@ -456,5 +456,12 @@ def favicon():
     )
 
 
+# ── Main ───────────────────────────────────────────────────────────────
+
 if __name__ == "__main__":
+    food.update({random_food_id(): random_food() for _ in range(100)})
+
+    for _ in range(1):
+        spawn_bot()
+
     socketio.run(app, debug=True)
