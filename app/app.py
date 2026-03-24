@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import mimetypes
 import os
 import random
@@ -7,22 +9,12 @@ import threading
 from flask import Flask, render_template, request, send_from_directory
 from flask_socketio import SocketIO, emit
 
-from app.car import (
-    MAP_SIDE,
-    PlayerCar,
-    SimpleBotCar,
-    constrain,
-    random_color,
-    random_food,
-)
+from app.car import MAP_SIDE, PlayerCar, SimpleBotCar, random_color, random_food
+from app.game_loop import heart_beat
 
 # ── Constants ──────────────────────────────────────────────────────────
 
 CHARACTERS = string.ascii_lowercase + string.digits
-HEART_BEAT_INTERVAL = 0.03
-VIEW_DISTANCE_X = 950
-VIEW_DISTANCE_Y = 530
-COLLISION_DETECTION_DISTANCE = 500
 
 # ── App setup ──────────────────────────────────────────────────────────
 
@@ -30,394 +22,154 @@ mimetypes.add_type("text/css", ".css")
 mimetypes.add_type("text/javascript", ".js")
 
 app = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(
+    app, cors_allowed_origins=os.environ.get("CORS_ORIGINS", "*"),
+)
 
 thread_lock = threading.Lock()
 heartbeat_thread = None
 
 # ── Game state ─────────────────────────────────────────────────────────
 
-food = {}
-cars = {}
-bots = {}
+food: dict[str, dict] = {}
+cars: dict[str, PlayerCar] = {}
+bots: dict[str, SimpleBotCar] = {}
 
 # ── Helper functions ───────────────────────────────────────────────────
 
 
-def random_food_id():
+def random_food_id() -> str:
     return "".join(random.choices(CHARACTERS, k=8))
 
 
-def spawn_bot():
+def spawn_bot() -> None:
     bots[random_food_id()] = SimpleBotCar(
         x=random.randint(-MAP_SIDE // 2, MAP_SIDE // 2),
         y=random.randint(-MAP_SIDE // 2, MAP_SIDE // 2),
         angle=random.randint(0, 359),
         color=random_color(),
         name="Bot Jerry",
-        score=random.randint(333, 333),
+        score=333,
     )
 
 
-# ── Game loop ──────────────────────────────────────────────────────────
+# ── Input validation ──────────────────────────────────────────────────
+
+_CAR_DATA_SCHEMA: dict[str, tuple[type, ...]] = {
+    "x": (int,),
+    "y": (int,),
+    "rot": (int, float),
+    "boost": (bool,),
+    "acc": (int, float),
+    "turn": (int,),
+}
 
 
-def heart_beat() -> None:
-    while True:
-        socketio.sleep(HEART_BEAT_INTERVAL)
-
-        # Anti hack shit:
-        # (keys, items)
-        for anti_hack_car in cars.values():  # foreach .items() is faster than using cars[key] ... https://www.youtube.com/watch?v=anrOzOapJ2E (didn't actually watch it)
-            try:
-                float(anti_hack_car.heartbeat_info["x"])
-                float(anti_hack_car.heartbeat_info["y"])
-            except:  # Disable hacker
-                anti_hack_car.active = False
-
-        # Gathering Best Position and scoreboard
-        best_score = -1
-        best_player_pos = None
-        scoreboard_info = []
-        cars_and_bots = [cars, bots]
-        for i in range(2):
-            for c_or_b_id, car_or_bot in cars_and_bots[i].items():
-                if car_or_bot.active:
-                    hb_info = car_or_bot.heartbeat_info  # Heartbeat Info
-                    scoreboard_info.append(
-                        [c_or_b_id, hb_info["name"], hb_info["score"]]
-                    )
-
-                    if best_score < hb_info["score"]:
-                        best_score = hb_info["score"]
-                        best_player_pos = [hb_info["x"], hb_info["y"]]
-
-        # THIS COULD PROBABLY BE MORE EFFICIENT!
-        scoreboard_info = sorted(
-            scoreboard_info, key=lambda x: x[2], reverse=True
-        )  # Get the second value which is SCORE
-        scoreboard_info = scoreboard_info[
-            :7
-        ]  # Limit scoreboard to 7 nicks (before converting to dict)
-        scoreboard_info = {
-            li[0]: li[1:] for li in scoreboard_info
-        }  # Converting to dict because that's how it is on client side
-
-        for (
-            send_to_car_id,
-            send_to_car,
-        ) in cars.items():  # Send Individual Information To THIS (send_to_car_id) Car
-            # Setup
-            send_to_car_info = send_to_car.heartbeat_info  # This literraly takes no memory because it's is linking the adress ID in memory!! ... For readability reasons
-            cars_to_display = {}
-            personal_info = {}
-            view_x = None
-            view_y = None
-            if send_to_car.active:  # If in game
-                carScale = constrain(1 - (send_to_car_info["score"] / 4000), 0, 1)
-                mapMult = 1 / carScale
-                view_x = VIEW_DISTANCE_X * mapMult
-                view_y = VIEW_DISTANCE_Y * mapMult
-                personal_info = {
-                    "score": send_to_car_info["score"],
-                    "scoreboard": scoreboard_info,
-                    "bestPlayerPos": best_player_pos,
-                }
-            else:
-                view_x = VIEW_DISTANCE_X * 2
-                view_y = VIEW_DISTANCE_Y * 2
-
-            # Bots
-            for display_bot_id, bot in dict(
-                bots
-            ).items():  # making copy so it don fak up when we modify bots list
-                bot_info = bot.heartbeat_info
-
-                # Player x Bot collision
-                if (
-                    send_to_car_info["x"] - view_x < bot_info["x"]
-                    and send_to_car_info["x"] + view_x > bot_info["x"]
-                    and send_to_car_info["y"] - view_y < bot_info["y"]
-                    and send_to_car_info["y"] + view_y > bot_info["y"]
-                ):
-                    cars_to_display[display_bot_id] = bot_info
-                if (
-                    abs(send_to_car_info["x"] - bot_info["x"])
-                    < COLLISION_DETECTION_DISTANCE
-                    and abs(send_to_car_info["y"] - bot_info["y"])
-                    < COLLISION_DETECTION_DISTANCE
-                ):
-                    send_to_car.heartbeat_info["color"] = random_color()
-                    # We gon check collisions only if they be close
-                    if (
-                        send_to_car.active
-                    ):  # Must be active for us to compare collision points
-                        bot.add_close_car(
-                            send_to_car_id, send_to_car
-                        )  # Add to list of close cars
-
-                        # Bots Collision
-                        if bot.does_kill(send_to_car):
-                            # Kill the player car
-                            send_to_car.active = False
-
-                            # Add score to killer bot
-                            bot.add_score_for_killing(send_to_car)
-
-                            socketio.emit(
-                                "dead",
-                                {"killer": bot_info["name"]},
-                                room=send_to_car_id,
-                            )
-
-                        elif send_to_car.does_kill(bot):
-                            # Add score to killer player
-                            send_to_car.add_score_for_killing(bot)
-
-                            # Confirm the kill to killer player
-                            socketio.emit(
-                                "u killed",
-                                {"dead": bot_info["name"]},
-                                room=send_to_car_id,
-                            )
-
-                            # Kill the bot
-                            del bots[display_bot_id]
-
-                            # Spawn bot
-                            spawn_bot()
-
-            ###
-
-            # Online players
-            for display_car_id, display_car in cars.items():
-                # Don't show inactive cars
-                if not display_car.active:
-                    continue
-
-                c = display_car.heartbeat_info
-
-                # Next car if this is 'send_to_car'
-                if send_to_car_id == display_car_id:
-                    continue
-
-                # Decide if to display car based on view distance
-                if (
-                    send_to_car_info["x"] - view_x < c["x"]
-                    and send_to_car_info["x"] + view_x > c["x"]
-                    and send_to_car_info["y"] - view_y < c["y"]
-                    and send_to_car_info["y"] + view_y > c["y"]
-                ):
-                    cars_to_display[display_car_id] = c
-            ###
-
-            # Food
-            food_to_display = {}
-            for food_id in food:
-                f = food[food_id]
-                # Decide if to display food based on view distance
-                if (
-                    send_to_car_info["x"] - view_x < f["x"]
-                    and send_to_car_info["x"] + view_x > f["x"]
-                    and send_to_car_info["y"] - view_y < f["y"]
-                    and send_to_car_info["y"] + view_y > f["y"]
-                ):
-                    food_to_display[food_id] = f
-
-            data = {
-                "cars": cars_to_display,
-                "food": food_to_display,
-                "info": personal_info,
-            }
-            socketio.emit("heartBeat", data, room=send_to_car_id)
-
-        # Bot x Bot collision
-        for bot_id, bot in list(bots.items()):  # Iterating a copy
-            # SETUP
-            bot_info = bot.heartbeat_info
-            bot_car_scale = constrain(1 - (bot_info["score"] / 4000), 0.01, 1)
-            map_mult = 1 / bot_car_scale
-            view_x = VIEW_DISTANCE_X * map_mult
-            view_y = VIEW_DISTANCE_Y * map_mult
-
-            for collide_bot_id, collide_bot in list(bots.items()):
-                if bot_id == collide_bot_id:
-                    continue
-
-                collide_bot_info = collide_bot.heartbeat_info
-
-                if (
-                    collide_bot_info["x"] - view_x < bot_info["x"]
-                    and collide_bot_info["x"] + view_x > bot_info["x"]
-                    and collide_bot_info["y"] - view_y < bot_info["y"]
-                    and collide_bot_info["y"] + view_y > bot_info["y"]
-                ):
-                    bot.add_close_car(collide_bot_id, collide_bot)
-
-                    # Bots Collision   # need to check if only one sidedly because it is nested bot loop
-                    if bot.does_kill(collide_bot):
-                        # Add score to killer bot
-                        bot.add_score_for_killing(collide_bot)
-
-                        # Kill the dead bot
-                        del bots[collide_bot_id]
-
-            bot.think()
+def _is_valid_car_data(data: object) -> bool:
+    return isinstance(data, dict) and all(
+        key in data and isinstance(data[key], types)
+        for key, types in _CAR_DATA_SCHEMA.items()
+    )
 
 
-# ── Socket endpoints ───────────────────────────────────────────────────
+# ── Socket endpoints ──────────────────────────────────────────────────
 
 
 @socketio.on("myCar", namespace="/")
-def update_my_car(car_data):
-    if request.sid in cars:
-        # check if data fits type
-        if (
-            "x" in car_data
-            and "y" in car_data
-            and "rot" in car_data
-            and "boost" in car_data
-            and "acc" in car_data
-            and "turn" in car_data
-            and isinstance(car_data["x"], int)
-            and isinstance(car_data["y"], int)
-            and (isinstance(car_data["rot"], float) or isinstance(car_data["rot"], int))
-            and isinstance(car_data["boost"], bool)
-            and (isinstance(car_data["acc"], float) or isinstance(car_data["acc"], int))
-            and isinstance(car_data["turn"], int)
-        ):
-            heartbeat_info = cars[request.sid].heartbeat_info
-
-            heartbeat_info["x"] = car_data["x"]
-            heartbeat_info["y"] = car_data["y"]
-            heartbeat_info["rot"] = car_data["rot"]
-            heartbeat_info["boost"] = car_data["boost"]
-            heartbeat_info["acc"] = car_data["acc"]
-            heartbeat_info["turn"] = car_data["turn"]
+def update_my_car(car_data: dict) -> None:
+    if request.sid in cars and _is_valid_car_data(car_data):
+        info = cars[request.sid].heartbeat_info
+        for key in _CAR_DATA_SCHEMA:
+            info[key] = car_data[key]
 
 
 @socketio.on("kill", namespace="/")
-def kill_it(victim_id) -> None:
-    if request.sid in cars:
-        killer_car = cars[request.sid]
+def on_kill(victim_id: str) -> None:
+    if request.sid not in cars:
+        return
+    killer = cars[request.sid]
+    if not killer.active:
+        return
 
-        if (
-            killer_car.active
-        ):  # Check killer call in first case because it is common with both ifs
-            if victim_id in cars:
-                dead_car = cars[victim_id]
+    if victim_id in cars:
+        victim = cars[victim_id]
+        if victim.active:
+            victim.active = False
+            killer.add_score_for_killing(victim)
+            emit("dead", {"killer": killer.heartbeat_info["name"]}, room=victim_id)
+            emit(
+                "u killed",
+                {"dead": victim.heartbeat_info["name"]},
+                room=request.sid,
+            )
 
-                if dead_car.active:  # Check if killer isn't dead :D
-                    # Kill the CAR
-                    dead_car.active = False
-
-                    # Add score to killer
-                    killer_car.add_score_for_killing(dead_car)
-
-                    # Send killer name to dead car
-                    emit(
-                        "dead",
-                        {"killer": killer_car.heartbeat_info["name"]},
-                        room=victim_id,
-                    )
-
-                    # Confirm the kill to killer
-                    emit(
-                        "u killed",
-                        {"dead": dead_car.heartbeat_info["name"]},
-                        room=request.sid,
-                    )
-
-            elif victim_id in bots:  # No need to check if it's active?
-                dead_bot = bots[victim_id]
-
-                # Kill the BOT
-                # dead_bot.active = False
-                del bots[victim_id]  # finish this
-
-                # Add score to killer
-                killer_car.add_score_for_killing(dead_bot)
-
-                # Confirm the kill to killer
-                emit(
-                    "u killed",
-                    {"dead": dead_bot.heartbeat_info["name"]},
-                    room=request.sid,
-                )
-
-                # Spawn new bot
-                spawn_bot()
+    elif victim_id in bots:
+        dead_bot = bots[victim_id]
+        del bots[victim_id]
+        killer.add_score_for_killing(dead_bot)
+        emit(
+            "u killed",
+            {"dead": dead_bot.heartbeat_info["name"]},
+            room=request.sid,
+        )
+        spawn_bot()
 
 
 @socketio.on("i died", namespace="/")
-def kill_me(killer_id) -> None:
-    if request.sid in cars:  # Check if killer isn't dead! :D
-        dead_car = cars[request.sid]
-        if dead_car.active:
-            if killer_id in cars:
-                killer_car = cars[killer_id]
+def on_died(killer_id: str) -> None:
+    if request.sid not in cars:
+        return
+    dead_car = cars[request.sid]
+    if not dead_car.active:
+        return
 
-                if killer_car.active:
-                    # Kill the car
-                    dead_car.active = False
+    if killer_id in cars:
+        killer = cars[killer_id]
+        if killer.active:
+            dead_car.active = False
+            killer.add_score_for_killing(dead_car)
+            emit(
+                "dead",
+                {"killer": killer.heartbeat_info["name"]},
+                room=request.sid,
+            )
+            emit(
+                "u killed",
+                {"dead": dead_car.heartbeat_info["name"]},
+                room=killer_id,
+            )
 
-                    # Add score to killer
-                    killer_car.add_score_for_killing(dead_car)
-
-                    # Send killer name to dead car | (room is socket killer_id)
-                    emit(
-                        "dead",
-                        {"killer": killer_car.heartbeat_info["name"]},
-                        room=request.sid,
-                    )
-
-                    # Confirm the kill to killer
-                    emit(
-                        "u killed",
-                        {"dead": dead_car.heartbeat_info["name"]},
-                        room=killer_id,
-                    )
-
-            if killer_id in bots:  # No need to check if it's active
-                killer_bot = bots[killer_id]
-
-                # Kill the car
-                dead_car.active = False
-
-                # Add score 50 hase + percentage from dead car
-                killer_bot.add_score_for_killing(dead_car)
-
-                # Send killer_bot name to dead car | (room is socket killer_id)
-                emit(
-                    "dead",
-                    {"killer": killer_bot.heartbeat_info["name"]},
-                    room=request.sid,
-                )
+    # Not elif — preserves original behavior: bot kill is checked independently
+    if killer_id in bots:
+        killer_bot = bots[killer_id]
+        dead_car.active = False
+        killer_bot.add_score_for_killing(dead_car)
+        emit(
+            "dead",
+            {"killer": killer_bot.heartbeat_info["name"]},
+            room=request.sid,
+        )
 
 
 @socketio.on("connect", namespace="/")
-def connected() -> None:
-
+def on_connect() -> None:
     cars[request.sid] = PlayerCar()
 
 
-@socketio.on("join", namespace="/")  # Click The "Start" Button
-def on_join(data) -> None:
+@socketio.on("join", namespace="/")
+def on_join(data: dict) -> None:
+    if request.sid not in cars:
+        return
     car = cars[request.sid]
-
-    car.spawn(data["name"])
-
+    car.spawn(data.get("name", ""))
     emit("join", car.heartbeat_info)
 
 
 @socketio.on("eat", namespace="/")
-def on_eat(food_id) -> None:
+def on_eat(food_id: str) -> None:
     if request.sid in cars and food_id in food:
-        # Delete eaten food
         del food[food_id]
-        # Spawn new food
         food[random_food_id()] = random_food()
-        # Add score to car
         cars[request.sid].add_score_for_eating_food()
 
 
@@ -429,9 +181,8 @@ def on_blur() -> None:
 
 
 @socketio.on("disconnect", namespace="/")
-def disconnected():
-    if request.sid in cars:
-        del cars[request.sid]
+def on_disconnect() -> None:
+    cars.pop(request.sid, None)
 
 
 # ── HTTP routes ────────────────────────────────────────────────────────
@@ -442,8 +193,10 @@ def index():
     global heartbeat_thread
     if heartbeat_thread is None:
         with thread_lock:
-            heartbeat_thread = socketio.start_background_task(heart_beat)
-
+            if heartbeat_thread is None:  # double-checked locking
+                heartbeat_thread = socketio.start_background_task(
+                    heart_beat, socketio, cars, bots, food, spawn_bot,
+                )
     return render_template("index.html")
 
 
@@ -460,8 +213,5 @@ def favicon():
 
 if __name__ == "__main__":
     food.update({random_food_id(): random_food() for _ in range(100)})
-
-    for _ in range(1):
-        spawn_bot()
-
+    spawn_bot()
     socketio.run(app, debug=True)

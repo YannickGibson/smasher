@@ -1,3 +1,3 @@
 run:
 	uv sync
-	uv run flask --app app.app run
+	uv run python -m app.app
