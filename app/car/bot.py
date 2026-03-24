@@ -26,8 +26,15 @@ class BotCar(BaseCar):
         super().__init__()
         self.active = True
         self.heartbeat_info = {
-            "x": x, "y": y, "name": name, "color": color,
-            "score": score, "rot": angle, "acc": 1, "turn": 0, "boost": False,
+            "x": x,
+            "y": y,
+            "name": name,
+            "color": color,
+            "score": score,
+            "rot": angle,
+            "acc": 1,
+            "turn": 0,
+            "boost": False,
         }
 
         self.speed = 0.0

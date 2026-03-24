@@ -23,7 +23,8 @@ mimetypes.add_type("text/javascript", ".js")
 
 app = Flask(__name__)
 socketio = SocketIO(
-    app, cors_allowed_origins=os.environ.get("CORS_ORIGINS", "*"),
+    app,
+    cors_allowed_origins=os.environ.get("CORS_ORIGINS", "*"),
 )
 
 thread_lock = threading.Lock()
@@ -195,7 +196,12 @@ def index():
         with thread_lock:
             if heartbeat_thread is None:  # double-checked locking
                 heartbeat_thread = socketio.start_background_task(
-                    heart_beat, socketio, cars, bots, food, spawn_bot,
+                    heart_beat,
+                    socketio,
+                    cars,
+                    bots,
+                    food,
+                    spawn_bot,
                 )
     return render_template("index.html")
 

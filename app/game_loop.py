@@ -81,8 +81,7 @@ def build_scoreboard(
 
     entries.sort(key=lambda e: e[2], reverse=True)
     scoreboard = {
-        eid: [name, score]
-        for eid, name, score in entries[:SCOREBOARD_MAX_ENTRIES]
+        eid: [name, score] for eid, name, score in entries[:SCOREBOARD_MAX_ENTRIES]
     }
     return scoreboard, best_pos
 
@@ -120,8 +119,12 @@ def handle_player_bot_collisions(
         bot_info = bot.heartbeat_info
 
         if is_in_view(
-            car_info["x"], car_info["y"], view_x, view_y,
-            bot_info["x"], bot_info["y"],
+            car_info["x"],
+            car_info["y"],
+            view_x,
+            view_y,
+            bot_info["x"],
+            bot_info["y"],
         ):
             cars_to_display[bot_id] = bot_info
 
@@ -165,7 +168,12 @@ def collect_visible_cars(
             continue
         info = car.heartbeat_info
         if is_in_view(
-            own_info["x"], own_info["y"], view_x, view_y, info["x"], info["y"],
+            own_info["x"],
+            own_info["y"],
+            view_x,
+            view_y,
+            info["x"],
+            info["y"],
         ):
             cars_to_display[car_id] = info
 
@@ -181,7 +189,12 @@ def collect_visible_food(
         fid: f
         for fid, f in food.items()
         if is_in_view(
-            own_info["x"], own_info["y"], view_x, view_y, f["x"], f["y"],
+            own_info["x"],
+            own_info["y"],
+            view_x,
+            view_y,
+            f["x"],
+            f["y"],
         )
     }
 
@@ -201,9 +214,12 @@ def handle_bot_bot_collisions(bots: dict[str, SimpleBotCar]) -> None:
 
             other_info = other_bot.heartbeat_info
             if is_in_view(
-                other_info["x"], other_info["y"],
-                view_x, view_y,
-                bot_info["x"], bot_info["y"],
+                other_info["x"],
+                other_info["y"],
+                view_x,
+                view_y,
+                bot_info["x"],
+                bot_info["y"],
             ):
                 bot.add_close_car(other_id, other_bot)
 
@@ -234,7 +250,8 @@ def heart_beat(
         for car_id, car in cars.items():
             car_info = car.heartbeat_info
             view_x, view_y = compute_view(
-                car_info.get("score", 0), car.active,
+                car_info.get("score", 0),
+                car.active,
             )
 
             personal_info: dict = {}
@@ -248,22 +265,40 @@ def heart_beat(
             cars_to_display: dict[str, dict] = {}
 
             handle_player_bot_collisions(
-                car_id, car, bots, cars_to_display,
-                view_x, view_y, socketio, spawn_bot_fn,
+                car_id,
+                car,
+                bots,
+                cars_to_display,
+                view_x,
+                view_y,
+                socketio,
+                spawn_bot_fn,
             )
 
             collect_visible_cars(
-                car_id, car_info, cars, cars_to_display, view_x, view_y,
+                car_id,
+                car_info,
+                cars,
+                cars_to_display,
+                view_x,
+                view_y,
             )
 
             food_to_display = collect_visible_food(
-                car_info, food, view_x, view_y,
+                car_info,
+                food,
+                view_x,
+                view_y,
             )
 
-            socketio.emit("heartBeat", {
-                "cars": cars_to_display,
-                "food": food_to_display,
-                "info": personal_info,
-            }, room=car_id)
+            socketio.emit(
+                "heartBeat",
+                {
+                    "cars": cars_to_display,
+                    "food": food_to_display,
+                    "info": personal_info,
+                },
+                room=car_id,
+            )
 
         handle_bot_bot_collisions(bots)

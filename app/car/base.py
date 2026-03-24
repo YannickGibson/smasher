@@ -47,9 +47,7 @@ class BaseCar:
         Uses lerp for fast growth at low scores, diminishing at high scores.
         """
         for _ in range(score_delta // 5):
-            self.body_height_scale = lerp(
-                self.body_height_scale, MAX_BODY_SCALE, 0.001
-            )
+            self.body_height_scale = lerp(self.body_height_scale, MAX_BODY_SCALE, 0.001)
             self.body_height = BASE_BODY_HEIGHT * self.body_height_scale
 
             self.bumper_width_scale = lerp(
@@ -71,7 +69,8 @@ class BaseCar:
         x = self.heartbeat_info["x"] - math.sin(rot) * self.body_height / 2
         y = self.heartbeat_info["y"] + math.cos(rot) * self.body_height / 2
         return get_vertices(
-            x, y,
+            x,
+            y,
             self.bumper_width * self.bumper_width_scale,
             self.bumper_height,
             rot,

@@ -64,15 +64,15 @@ def segments_intersect(
     return 0 <= t <= 1 and 0 <= u <= 1
 
 
-def does_collide(
-    vertices1: list[list[float]], vertices2: list[list[float]]
-) -> bool:
+def does_collide(vertices1: list[list[float]], vertices2: list[list[float]]) -> bool:
     """Check if two polygons (given as closed vertex lists) have intersecting edges."""
     for i in range(len(vertices1) - 1):
         for j in range(len(vertices2) - 1):
             if segments_intersect(
-                vertices1[i], vertices1[i + 1],
-                vertices2[j], vertices2[j + 1],
+                vertices1[i],
+                vertices1[i + 1],
+                vertices2[j],
+                vertices2[j + 1],
             ):
                 return True
     return False
@@ -89,8 +89,7 @@ def get_vertices(
     cos_r = math.cos(rot)
 
     result = [
-        [cx * cos_r - cy * sin_r + x, cx * sin_r + cy * cos_r + y]
-        for cx, cy in corners
+        [cx * cos_r - cy * sin_r + x, cx * sin_r + cy * cos_r + y] for cx, cy in corners
     ]
     result.append(result[0])  # close the polygon
     return result
